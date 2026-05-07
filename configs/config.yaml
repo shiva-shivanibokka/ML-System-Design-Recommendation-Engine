@@ -1,0 +1,177 @@
+# =============================================================================
+# ML System Design: Real-Time Recommendation Engine
+# Master Configuration
+# =============================================================================
+
+project:
+  name: recsys-engine
+  version: "1.0.0"
+  dataset: movielens-1m
+
+# -----------------------------------------------------------------------------
+# Data Paths
+# -----------------------------------------------------------------------------
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  embeddings_dir: data/embeddings
+  indexes_dir: data/indexes
+  movielens_url: "https://files.grouplens.org/datasets/movielens/ml-1m.zip"
+  min_interactions: 5          # cold-start threshold — users/items below this
+  train_ratio: 0.8
+  val_ratio: 0.1
+  # test_ratio: 0.1 (remainder)
+
+# -----------------------------------------------------------------------------
+# Feature Store (Feast)
+# -----------------------------------------------------------------------------
+feature_store:
+  repo_path: feature_store/feature_repo
+  offline_store_path: data/processed/feast_offline.db   # SQLite for portability
+  online_store: redis                                    # Redis-backed online store
+  redis_host: redis
+  redis_port: 6379
+  materialization_interval_hours: 24
+
+# -----------------------------------------------------------------------------
+# Model: SVD (Baseline Matrix Factorization)
+# -----------------------------------------------------------------------------
+svd:
+  n_components: 128
+  n_iter: 20
+  random_state: 42
+  model_path: models/svd/svd_model.pkl
+  user_factors_path: models/svd/user_factors.npy
+  item_factors_path: models/svd/item_factors.npy
+
+# -----------------------------------------------------------------------------
+# Model: NCF (Neural Collaborative Filtering)
+# -----------------------------------------------------------------------------
+ncf:
+  embedding_dim: 64            # size of user/item embedding vectors
+  mlp_layers: [128, 64, 32]    # MLP tower hidden layers after concat
+  dropout: 0.2
+  learning_rate: 0.001
+  batch_size: 1024
+  num_epochs: 20
+  num_negatives: 4             # negative samples per positive interaction
+  early_stopping_patience: 3
+  model_path: models/ncf/ncf_model.pt
+  user_embedding_path: models/ncf/user_embeddings.npy
+  item_embedding_path: models/ncf/item_embeddings.npy
+
+# -----------------------------------------------------------------------------
+# FAISS Index (Stage 1 Candidate Generation)
+# -----------------------------------------------------------------------------
+faiss:
+  index_path: data/indexes/faiss_ivfpq.index
+  docid_map_path: data/indexes/item_id_map.pkl
+  embedding_dim: 64            # must match ncf.embedding_dim
+  n_clusters: 256              # IVF cluster count (sqrt of corpus size ~3600 items)
+  n_probe: 32                  # clusters to search at query time
+  pq_subquantizers: 16         # PQ compression subquantizers
+  top_k_candidates: 500        # Stage 1 → retrieve this many candidates
+
+# -----------------------------------------------------------------------------
+# Serving Pipeline — Latency Budgets (milliseconds)
+# Netflix/YouTube standard: total p99 < 100ms
+# -----------------------------------------------------------------------------
+latency_budgets:
+  total_p99_ms: 100
+  candidate_generation_ms: 20   # FAISS ANN retrieval
+  feature_fetch_ms: 10          # Redis online feature lookup
+  ranking_ms: 50                # NCF/SVD reranking of 500 candidates
+  post_ranking_ms: 10           # MMR diversity + freshness + business rules
+  cache_serve_ms: 5             # Redis cache hit return
+
+# -----------------------------------------------------------------------------
+# Redis Cache
+# -----------------------------------------------------------------------------
+redis:
+  host: redis
+  port: 6379
+  recommendation_ttl_seconds: 300    # cache user recommendations for 5 min
+  feature_ttl_seconds: 86400         # cache user/item features for 24h
+
+# -----------------------------------------------------------------------------
+# Bandit Router (Thompson Sampling A/B)
+# -----------------------------------------------------------------------------
+bandit:
+  models: ["svd", "ncf"]
+  initial_alpha: 1.0           # Beta distribution prior (uninformative)
+  initial_beta: 1.0
+  state_path: data/bandit_state.json
+  min_samples_per_arm: 50      # force exploration before exploitation
+  significance_threshold: 0.95 # confidence to declare winner
+
+# -----------------------------------------------------------------------------
+# Post-Ranking
+# -----------------------------------------------------------------------------
+post_ranking:
+  top_n: 10                    # final number of recommendations returned
+  mmr_lambda: 0.7              # MMR: 0=full diversity, 1=full relevance
+  freshness_weight: 0.1        # boost for items interacted with in last 7 days
+  max_same_genre: 3            # max items from same genre in top-10
+
+# -----------------------------------------------------------------------------
+# Cold-Start
+# -----------------------------------------------------------------------------
+cold_start:
+  user_min_interactions: 5     # users below this → cold-start routing
+  item_min_interactions: 10    # items below this → content-based fallback
+  popularity_top_n: 200        # pool size for popularity-based fallback
+  content_sim_top_k: 20        # item embedding neighbors for content fallback
+
+# -----------------------------------------------------------------------------
+# Kafka
+# -----------------------------------------------------------------------------
+kafka:
+  bootstrap_servers: kafka:9092
+  topics:
+    user_events: user-interaction-events
+    feedback: recommendation-feedback
+  consumer_group: recsys-consumer-group
+  auto_offset_reset: earliest
+
+# -----------------------------------------------------------------------------
+# MLflow
+# -----------------------------------------------------------------------------
+mlflow:
+  tracking_uri: http://mlflow:5001
+  experiment_name: recsys-recommendation-engine
+  artifact_location: /mlflow/artifacts
+
+# -----------------------------------------------------------------------------
+# Monitoring / Staleness Detection
+# -----------------------------------------------------------------------------
+monitoring:
+  ctr_window_hours: 168          # 7-day rolling CTR window
+  ctr_alert_threshold: 0.8       # alert if CTR drops below 80% of baseline
+  coverage_alert_threshold: 0.1  # alert if <10% of catalog recommended
+  staleness_check_interval_hours: 6
+  prometheus_port: 8000          # gateway metrics endpoint
+
+# -----------------------------------------------------------------------------
+# Services (ports)
+# -----------------------------------------------------------------------------
+services:
+  gateway_port: 8000
+  retrieval_port: 8001
+  ranking_port: 8002
+  feedback_port: 8003
+  mlflow_port: 5001
+  gradio_port: 7860
+  airflow_port: 8080
+  prometheus_port: 9090
+  grafana_port: 3000
+
+# -----------------------------------------------------------------------------
+# PostgreSQL (interaction + event log)
+# -----------------------------------------------------------------------------
+postgres:
+  host: postgres
+  port: 5432
+  db: recsys
+  user: recsys
+  password: recsys
+  url: postgresql://recsys:recsys@postgres:5432/recsys

@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+*.pth
+*.pt
+*.pkl
+*.npy
+data/raw/
+data/processed/
+data/embeddings/
+data/indexes/
+data/bandit_state.json
+models/
+mlflow/
+.DS_Store
+*.log

@@ -1,0 +1,10 @@
+project: recsys-engine
+registry: data/processed/feast_registry.db
+provider: local
+
+offline_store:
+  type: file
+
+online_store:
+  type: redis
+  connection_string: "redis://redis:6379"
