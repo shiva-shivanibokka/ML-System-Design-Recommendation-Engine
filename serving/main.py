@@ -104,6 +104,7 @@ class AppState:
     faiss_id_to_idx: Dict[int, int] = {}  # item_id → FAISS internal idx
     redis_client: Optional[redis.Redis] = None
     db_engine = None
+    feast_store = None  # Feast FeatureStore for online feature retrieval
     user_id_map: Dict[int, int] = {}  # user_id → user_idx
     item_id_map: Dict[int, int] = {}  # item_id → item_idx
     idx_to_item: Dict[int, int] = {}  # item_idx → item_id
@@ -209,6 +210,15 @@ async def lifespan(app: FastAPI):
 
     # Background staleness check thread
     _start_staleness_thread()
+
+    # Feast online store — graceful degradation if not yet materialized
+    try:
+        from feast import FeatureStore
+        state.feast_store = FeatureStore(repo_path=settings.feature_store.repo_path)
+        log.info("startup.feast_connected")
+    except Exception as e:
+        log.warning("startup.feast_failed", error=str(e))
+        state.feast_store = None
 
     log.info("startup.complete", elapsed_sec=round(time.time() - t0, 2))
     yield
@@ -416,12 +426,31 @@ async def _recommend_pipeline(req: RecommendRequest) -> RecommendResponse:
         is_cold_start = True
 
     # ------------------------------------------------------------------
-    # Stage 2: Feature Fetch (Redis)
+    # Stage 2: Feature Fetch (Feast → Redis online store)
+    # Fetches user features materialized by feature_store/materialize.py.
+    # Degrades gracefully if the online store isn't populated yet — the
+    # ranking stages work fine without these features; they're additive signal.
+    # Run `make feast-materialize` after training to populate the online store.
     # ------------------------------------------------------------------
     t0 = time.time()
-    # (Feature fetch placeholder — in full Feast integration, this fetches
-    #  user + item features from Redis online store for ranking feature augmentation)
+    feast_features: dict = {}
+    if state.feast_store is not None:
+        try:
+            fv = state.feast_store.get_online_features(
+                features=[
+                    "user_features:interaction_count",
+                    "user_features:is_cold_user",
+                    "user_features:avg_rating_proxy",
+                ],
+                entity_rows=[{"user_id": user_id}],
+            ).to_dict()
+            feast_features = {k: v[0] for k, v in fv.items() if v and v[0] is not None}
+            if feast_features:
+                log.debug("stage2.features_fetched", user_id=user_id, keys=list(feast_features.keys()))
+        except Exception as e:
+            log.debug("stage2.feast_miss", error=str(e))
     stage_latencies[STAGE_FEATURE_FETCH] = (time.time() - t0) * 1000
+    PIPELINE_LATENCY.labels(stage=STAGE_FEATURE_FETCH).observe(stage_latencies[STAGE_FEATURE_FETCH])
 
     # ------------------------------------------------------------------
     # Stage 3: Ranking (Thompson Sampling → SVD or NCF)
