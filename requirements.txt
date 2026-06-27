@@ -43,6 +43,9 @@ structlog==24.1.0
 gradio==4.31.0
 plotly==5.22.0
 
+# LLM Explanations (optional — set GEMINI_API_KEY to enable)
+google-generativeai==0.7.2
+
 # Utilities
 pyyaml==6.0.1
 python-dotenv==1.0.1

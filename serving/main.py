@@ -68,6 +68,7 @@ from sqlalchemy import create_engine, text
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from configs.settings import settings
 from serving.bandit import bandit
+from serving.explain import explain_recommendations as _explain_recs
 from serving.cold_start import cold_start_handler
 from serving.monitoring import (
     staleness_detector,
@@ -714,6 +715,33 @@ async def health():
         "redis": state.redis_client is not None,
         "postgres": state.db_engine is not None,
         "n_total_items": state.n_total_items,
+    }
+
+
+@app.get("/recommend/{user_id}/explain")
+async def explain(user_id: int, top_n: int = 5):
+    """
+    Recommendations with natural language explanations per item.
+    Uses Gemini Flash if GEMINI_API_KEY env var is set (free at aistudio.google.com).
+    Falls back to deterministic templates when no API key is configured.
+    """
+    req = RecommendRequest(user_id=user_id, top_n=min(top_n, 10))
+    result = await _recommend_pipeline(req)
+    recs_dict = [r.model_dump() for r in result.recommendations]
+    explained = _explain_recs(
+        user_id=user_id,
+        recommendations=recs_dict,
+        model_used=result.model_used,
+        is_cold_start=result.is_cold_start,
+    )
+    return {
+        "request_id": result.request_id,
+        "user_id": user_id,
+        "model_used": result.model_used,
+        "is_cold_start": result.is_cold_start,
+        "recommendations": explained,
+        "latency_ms": result.latency_ms,
+        "explanation_provider": "gemini-1.5-flash" if os.getenv("GEMINI_API_KEY") else "template",
     }
 
 
