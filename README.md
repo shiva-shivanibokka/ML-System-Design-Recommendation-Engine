@@ -1,5 +1,7 @@
 # ML System Design: Real-Time Recommendation Engine
 
+[![CI](https://github.com/shivani-bokka/ML-System-Design-Recommendation-Engine/actions/workflows/ci.yml/badge.svg)](https://github.com/shivani-bokka/ML-System-Design-Recommendation-Engine/actions/workflows/ci.yml)
+
 A production-grade recommendation system designed to the same architectural standards as Netflix, Spotify, and YouTube. Built to answer the most common ML system design interview question at FAANG companies.
 
 ---
@@ -58,7 +60,7 @@ Click event → POST /feedback/click
   → Thompson Sampling bandit: α += 1 (reward)
   → PostgreSQL click log
   → Kafka consumer → Feast offline store (new training row)
-  → Nightly Airflow DAG: retrain → validate → promote if better
+  → Nightly APScheduler job (2AM): retrain → validate → promote if better
 
 ── Staleness Detection (background thread) ────────────────────────
   CTR rolling 7-day  → alert if < 80% of baseline
@@ -138,59 +140,85 @@ Click event → POST /feedback/click
 
 ## Quickstart
 
-### 1. Install dependencies
+### One-command bootstrap (local, no Docker)
 ```bash
-pip install -r requirements.txt
+# 1. Copy and configure secrets
+cp .env.example .env  # then edit .env: set POSTGRES_PASSWORD and GRAFANA_PASSWORD
+
+# 2. Bootstrap everything (installs deps, downloads data, trains, registers features)
+make bootstrap
+
+# 3. Start the API
+make serve
 ```
 
-### 2. Download and preprocess MovieLens 1M
+### Full Docker stack
 ```bash
-python scripts/download_movielens.py
+cp .env.example .env  # set secrets
+make docker-up
 ```
 
-### 3. Train models
-```bash
-python training/train.py --model all
-# Trains SVD + NCF, builds FAISS index, registers in MLflow
-```
-
-### 4. Start full stack
-```bash
-docker-compose up --build
-```
-
-### 5. Access services
 | Service | URL |
 |---|---|
 | FastAPI docs | http://localhost:8000/docs |
 | Gradio UI | http://localhost:7860 |
 | MLflow | http://localhost:5001 |
 | Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3000 |
+| Grafana | http://localhost:3000 (admin / value from GRAFANA_PASSWORD) |
 
-### 6. Test the API
+### Test the API
 ```bash
-# Get recommendations for user 1
+# Recommendations
 curl -X POST http://localhost:8000/recommend \
   -H "Content-Type: application/json" \
   -d '{"user_id": 1, "top_n": 10}'
 
-# Register a click (updates bandit)
+# With natural language explanations (Gemini Flash if GEMINI_API_KEY set, else templates)
+curl "http://localhost:8000/recommend/1/explain?top_n=5"
+
+# Register a click (updates Thompson Sampling bandit)
 curl -X POST http://localhost:8000/feedback/click \
   -H "Content-Type: application/json" \
   -d '{"request_id": "...", "user_id": 1, "item_id": 1196, "model_used": "ncf", "rank_shown": 1}'
 
-# Check bandit state
+# Thompson Sampling state
 curl http://localhost:8000/bandit/state
 
-# Check staleness signals
+# Staleness signals
 curl http://localhost:8000/monitoring/health
 ```
 
-### 7. Simulate user events (Kafka producer)
+### Run tests
+```bash
+make test
+```
+
+### Simulate user events (Kafka producer)
 ```bash
 python kafka/producer.py --n-events 1000 --rate 10
 ```
+
+---
+
+## Deployment
+
+### Backend: Railway (free tier, Docker-based)
+1. Push repo to GitHub.
+2. Create a new Railway project → Deploy from GitHub → select this repo.
+3. Set environment variables in Railway: `POSTGRES_PASSWORD`, `GRAFANA_PASSWORD`, `POSTGRES_HOST` (Railway Postgres URL), `REDIS_HOST` (Railway Redis URL).
+4. Railway auto-detects `Dockerfile` and deploys the FastAPI gateway on a public URL.
+5. Set `DATABASE_URL` in Railway to override the component-level Postgres vars (Railway provides a full connection string).
+
+### Frontend: Hugging Face Spaces (free, Gradio)
+1. Create a new Space at huggingface.co → select Gradio SDK.
+2. Upload `gradio_app/` files (or link GitHub repo with Space pointing to gradio entrypoint).
+3. Set `GATEWAY_URL` environment variable in the Space settings to your Railway backend URL.
+4. The Space auto-deploys on every push to main.
+
+### LLM Explanations: Google AI Studio (free tier)
+1. Get a free API key at aistudio.google.com.
+2. Set `GEMINI_API_KEY` in Railway environment variables.
+3. `GET /recommend/{user_id}/explain` will automatically use Gemini Flash for richer explanations.
 
 ---
 
@@ -228,7 +256,7 @@ python kafka/producer.py --n-events 1000 --rate 10
 **"What happens when a model goes stale?"**
 - Three signals: CTR drop, coverage collapse, PSI score distribution shift
 - Kafka consumer continuously writes new interactions to Feast offline store
-- Airflow DAG retrains nightly with fresh data, validates against held-out set, promotes if better
+- APScheduler triggers nightly retrain (2AM) with fresh data; validates and promotes if better
 
 **"How do you handle the cold-start problem?"**
 - New users: popularity-based fallback (top-200 globally popular items)
