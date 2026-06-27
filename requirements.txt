@@ -30,6 +30,7 @@ redis==5.0.4
 
 # Kafka
 kafka-python==2.0.2
+apscheduler==3.10.4
 
 # MLflow
 mlflow==2.13.0

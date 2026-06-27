@@ -24,6 +24,7 @@ Run:
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import time
 import uuid
@@ -31,6 +32,7 @@ from pathlib import Path
 from typing import List
 
 import pandas as pd
+from apscheduler.schedulers.background import BackgroundScheduler
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from configs.settings import settings
@@ -91,6 +93,36 @@ def flush_to_feast_offline(events: List[dict]):
     )
 
 
+def trigger_nightly_retrain():
+    """
+    Nightly retraining trigger — fires at 2 AM daily.
+    Replaces the Airflow DAG referenced in the architecture docs.
+    Only retrains if enough new interactions have buffered since the last run.
+    """
+    buffer_path = Path(settings.data.processed_dir) / "new_interactions_buffer.parquet"
+    if not buffer_path.exists():
+        print("[Scheduler] No interaction buffer found — skipping retrain")
+        return
+
+    buf = pd.read_parquet(buffer_path)
+    min_new = 100
+    if len(buf) < min_new:
+        print(f"[Scheduler] Only {len(buf)} new interactions (need {min_new}) — skipping")
+        return
+
+    print(f"[Scheduler] Triggering retrain on {len(buf)} new interactions")
+    result = subprocess.run(
+        ["python", "training/train.py", "--model", "all"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        print("[Scheduler] Retrain complete — clearing interaction buffer")
+        buffer_path.unlink()
+    else:
+        print(f"[Scheduler] Retrain failed:\n{result.stderr}")
+
+
 def consume():
     if not KAFKA_AVAILABLE:
         print("[Consumer] kafka-python not installed. Exiting.")
@@ -110,22 +142,30 @@ def consume():
         print(f"[Consumer] Cannot connect to Kafka: {e}")
         return
 
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(trigger_nightly_retrain, "cron", hour=2, minute=0)
+    scheduler.start()
+    print("[Consumer] Nightly retraining scheduler started (fires at 02:00 daily)")
+
     buffer = []
     last_flush = time.time()
 
-    for message in consumer:
-        event = message.value
-        buffer.append(event)
+    try:
+        for message in consumer:
+            event = message.value
+            buffer.append(event)
 
-        # Flush on size or time threshold
-        should_flush = (
-            len(buffer) >= FLUSH_INTERVAL_EVENTS
-            or (time.time() - last_flush) >= FLUSH_INTERVAL_SECONDS
-        )
-        if should_flush:
-            flush_to_feast_offline(buffer)
-            buffer.clear()
-            last_flush = time.time()
+            # Flush on size or time threshold
+            should_flush = (
+                len(buffer) >= FLUSH_INTERVAL_EVENTS
+                or (time.time() - last_flush) >= FLUSH_INTERVAL_SECONDS
+            )
+            if should_flush:
+                flush_to_feast_offline(buffer)
+                buffer.clear()
+                last_flush = time.time()
+    finally:
+        scheduler.shutdown()
 
 
 if __name__ == "__main__":
