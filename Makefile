@@ -1,5 +1,6 @@
 .PHONY: help setup data train feast-apply feast-materialize serve test \
-        docker-up docker-down bootstrap lint
+        docker-up docker-down bootstrap lint \
+        frontend-install frontend-dev frontend-build
 
 PYTHON := python
 PIP := pip
@@ -18,6 +19,10 @@ help:
 	@echo "  docker-up         Start all services (Kafka, Redis, Postgres, Grafana...)"
 	@echo "  docker-down       Stop and remove all containers"
 	@echo "  lint              Run ruff linter"
+	@echo ""
+	@echo "  frontend-install  Install Next.js frontend dependencies"
+	@echo "  frontend-dev      Start Next.js dev server on :3001"
+	@echo "  frontend-build    Build Next.js for production"
 
 setup:
 	$(PIP) install -r requirements.txt
@@ -62,3 +67,12 @@ bootstrap: setup data train feast-apply feast-materialize
 
 lint:
 	ruff check .
+
+frontend-install:
+	cd frontend && npm install
+
+frontend-dev:
+	cd frontend && npm run dev -- --port 3001
+
+frontend-build:
+	cd frontend && npm run build
