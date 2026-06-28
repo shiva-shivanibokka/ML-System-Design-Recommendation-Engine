@@ -84,9 +84,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: recsys
-      POSTGRES_USER: recsys
-      POSTGRES_PASSWORD: recsys
+      POSTGRES_DB: ${POSTGRES_DB:-recsys}
+      POSTGRES_USER: ${POSTGRES_USER:-recsys}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
       - "5432:5432"
     volumes:
@@ -136,6 +136,13 @@ services:
         condition: service_healthy
     environment:
       - PYTHONUNBUFFERED=1
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      - POSTGRES_USER=${POSTGRES_USER:-recsys}
+      - POSTGRES_DB=${POSTGRES_DB:-recsys}
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - MLFLOW_TRACKING_URI=http://mlflow:5001
     volumes:
       - ./data:/app/data
       - ./models:/app/models
@@ -157,6 +164,10 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      - POSTGRES_HOST=postgres
     volumes:
       - ./data:/app/data
       - ./configs:/app/configs
@@ -206,7 +217,7 @@ services:
     depends_on:
       - prometheus
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?Set GRAFANA_PASSWORD in .env}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana

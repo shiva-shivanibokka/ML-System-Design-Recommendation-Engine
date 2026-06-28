@@ -173,5 +173,5 @@ postgres:
   port: 5432
   db: recsys
   user: recsys
-  password: recsys
-  url: postgresql://recsys:recsys@postgres:5432/recsys
+  password: ""   # set via POSTGRES_PASSWORD env var
+  url: ""        # constructed at runtime from components, or override with DATABASE_URL

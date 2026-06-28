@@ -205,6 +205,28 @@ def _load_settings() -> Settings:
     with open(config_path) as f:
         raw = yaml.safe_load(f)
 
+    # Override sensitive fields from environment variables so secrets never live
+    # in committed files. Set these in .env (local) or your cloud provider's
+    # secret store (Railway / Render / HF Spaces).
+    pg = raw["postgres"]
+    pg["password"] = os.getenv("POSTGRES_PASSWORD", "recsys")
+    pg["user"] = os.getenv("POSTGRES_USER", pg["user"])
+    pg["host"] = os.getenv("POSTGRES_HOST", pg["host"])
+    pg["db"] = os.getenv("POSTGRES_DB", pg["db"])
+    # DATABASE_URL takes precedence over component-level overrides
+    pg["url"] = os.getenv(
+        "DATABASE_URL",
+        f"postgresql://{pg['user']}:{pg['password']}@{pg['host']}:{pg['port']}/{pg['db']}",
+    )
+
+    raw["redis"]["host"] = os.getenv("REDIS_HOST", raw["redis"]["host"])
+    raw["kafka"]["bootstrap_servers"] = os.getenv(
+        "KAFKA_BOOTSTRAP_SERVERS", raw["kafka"]["bootstrap_servers"]
+    )
+    raw["mlflow"]["tracking_uri"] = os.getenv(
+        "MLFLOW_TRACKING_URI", raw["mlflow"]["tracking_uri"]
+    )
+
     return Settings(
         data=DataConfig(**raw["data"]),
         feature_store=FeatureStoreConfig(**raw["feature_store"]),
