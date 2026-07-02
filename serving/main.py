@@ -118,6 +118,7 @@ class AppState:
     user_interaction_counts: Dict[int, int] = {}
     item_interaction_counts: Dict[int, int] = {}
     user_history: Dict[int, set] = {}  # user_idx → set of item_idxs seen
+    embedding_map: List[dict] = []  # precomputed 2D item embedding projection
 
 
 state = AppState()
@@ -217,6 +218,15 @@ async def lifespan(app: FastAPI):
 
     # User history for negative sampling / seen item exclusion
     state.user_history = train.groupby("user_idx")["item_idx"].apply(set).to_dict()
+
+    # Precomputed 2D embedding projection for the "embedding galaxy" viz
+    emap_path = proc / "embedding_map.parquet"
+    if emap_path.exists():
+        emap = pd.read_parquet(emap_path)
+        state.embedding_map = emap.to_dict(orient="records")
+        log.info("startup.embedding_map_loaded", n_points=len(state.embedding_map))
+    else:
+        log.warning("startup.embedding_map_missing")
 
     # Cold-start handler
     cold_start_handler.load()
@@ -694,6 +704,27 @@ async def get_bandit_state():
     state_data = bandit.get_state()
     state_data["traffic_split"] = bandit.get_traffic_split()
     return state_data
+
+
+@app.get("/catalog/embedding_map")
+async def get_embedding_map():
+    """2D t-SNE projection of NCF item embeddings, for the embedding-galaxy viz.
+
+    Returns points [{item_id, x, y, genre, title, popularity}] plus the set of
+    genres present. Precomputed offline by scripts/build_embedding_map.py.
+    """
+    genres = sorted({p["genre"] for p in state.embedding_map})
+    return {"points": state.embedding_map, "genres": genres, "count": len(state.embedding_map)}
+
+
+@app.get("/model/metrics")
+async def get_model_metrics():
+    """Offline evaluation metrics (HR@10, NDCG@10) per model — the 'model card'."""
+    metrics_path = Path(settings.ncf.model_path).parent.parent / "metrics.json"
+    if metrics_path.exists():
+        with open(metrics_path) as f:
+            return json.load(f)
+    return {"models": {}, "note": "metrics.json not found"}
 
 
 @app.post("/admin/bandit/reset")
