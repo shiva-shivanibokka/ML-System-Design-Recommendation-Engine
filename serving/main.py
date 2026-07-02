@@ -60,7 +60,7 @@ import faiss
 import numpy as np
 import redis
 import structlog
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
@@ -661,7 +661,7 @@ async def _recommend_pipeline(req: RecommendRequest) -> RecommendResponse:
 
 
 @app.post("/recommend", response_model=RecommendResponse)
-async def recommend(req: RecommendRequest, background_tasks: BackgroundTasks):
+async def recommend(req: RecommendRequest):
     """
     Main recommendation endpoint.
     5-stage pipeline: cache check → FAISS retrieval → Feast features →

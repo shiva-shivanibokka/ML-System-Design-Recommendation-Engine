@@ -65,6 +65,7 @@ class ThompsonSamplingBandit:
         # Tracks how many times each arm was *selected* (not just rewarded), so
         # cold-start exploration can round-robin fairly before feedback arrives.
         self._selection_counts: Dict[str, int] = {m: 0 for m in self.model_names}
+        self._updates_since_save: int = 0
         self._winner: Optional[str] = None
         self._winner_declared_at: Optional[float] = None
 
@@ -127,7 +128,14 @@ class ThompsonSamplingBandit:
 
         # Check for winner after every update
         self._check_for_winner()
-        self.save()
+
+        # Persist periodically rather than on every click — a full JSON file
+        # write per feedback event blocks the async event loop. Losing a few
+        # updates on a hard crash is acceptable for approximate bandit state.
+        self._updates_since_save += 1
+        if self._updates_since_save >= 10 or self._winner is not None:
+            self.save()
+            self._updates_since_save = 0
 
     # ------------------------------------------------------------------
     # Winner detection (Bayesian credible interval)
@@ -216,16 +224,21 @@ class ThompsonSamplingBandit:
             },
         }
 
-    def get_traffic_split(self) -> Dict[str, float]:
+    def get_traffic_split(self, n_samples: int = 2000) -> Dict[str, float]:
         """
-        Estimated effective traffic split based on Thompson Sampling.
-        Approximated by simulating 10,000 arm selections.
+        Estimated effective traffic split under Thompson Sampling, via Monte-Carlo.
+        Uses pure Beta sampling directly (NOT select_arm) so it has no side effects
+        — select_arm mutates the round-robin selection counts — and is cheaper.
         """
+        if self._winner:
+            return {m: (1.0 if m == self._winner else 0.0) for m in self.model_names}
         counts = {m: 0 for m in self.model_names}
-        for _ in range(10_000):
-            arm = self.select_arm()
-            counts[arm] += 1
-        return {m: counts[m] / 10_000 for m in self.model_names}
+        for _ in range(n_samples):
+            samples = {
+                m: np.random.beta(self.alphas[m], self.betas[m]) for m in self.model_names
+            }
+            counts[max(samples, key=samples.get)] += 1
+        return {m: counts[m] / n_samples for m in self.model_names}
 
     # ------------------------------------------------------------------
     # Persistence

@@ -59,9 +59,6 @@ class SVDRecommender:
         self.item_factors: np.ndarray = None  # (n_items, k)
         self.n_users: int = 0
         self.n_items: int = 0
-        self._user2idx: Dict = {}
-        self._item2idx: Dict = {}
-        self._idx2item: Dict = {}
 
     def fit(self, train: pd.DataFrame, n_users: int, n_items: int) -> "SVDRecommender":
         """
@@ -111,10 +108,6 @@ class SVDRecommender:
         top_indices = np.argpartition(scores, -top_k)[-top_k:]
         top_indices = top_indices[np.argsort(scores[top_indices])[::-1]]
         return [(int(idx), float(scores[idx])) for idx in top_indices]
-
-    def get_item_embedding(self, item_idx: int) -> np.ndarray:
-        """Return item factor vector — used for content-based cold-start fallback."""
-        return self.item_factors[item_idx]
 
     def save(self):
         Path(settings.svd.model_path).parent.mkdir(parents=True, exist_ok=True)

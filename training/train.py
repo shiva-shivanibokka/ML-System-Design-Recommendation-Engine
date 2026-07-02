@@ -51,7 +51,6 @@ def load_data():
     proc = Path(settings.data.processed_dir)
     train = pd.read_parquet(proc / "train.parquet")
     val = pd.read_parquet(proc / "val.parquet")
-    movies = pd.read_parquet(proc / "movies.parquet")
     user_map = pd.read_parquet(proc / "user_id_map.parquet")
     item_map = pd.read_parquet(proc / "item_id_map.parquet")
 
@@ -63,7 +62,7 @@ def load_data():
 
     print(f"[data] n_users={n_users:,}  n_items={n_items:,}")
     print(f"[data] train={len(train):,}  val={len(val):,}")
-    return train, val, movies, user_history, n_users, n_items
+    return train, val, user_history, n_users, n_items
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +70,7 @@ def load_data():
 # ---------------------------------------------------------------------------
 
 
-def train_svd(train, val, user_history, n_users, n_items):
+def train_svd(train, val, n_users, n_items):
     print("\n" + "=" * 60)
     print("TRAINING: SVD Baseline")
     print("=" * 60)
@@ -355,10 +354,10 @@ def main():
     args = parser.parse_args()
 
     _set_seed()
-    train_df, val_df, movies, user_history, n_users, n_items = load_data()
+    train_df, val_df, user_history, n_users, n_items = load_data()
 
     if args.model in ("svd", "all"):
-        train_svd(train_df, val_df, user_history, n_users, n_items)
+        train_svd(train_df, val_df, n_users, n_items)
 
     if args.model in ("ncf", "all"):
         train_ncf(train_df, val_df, user_history, n_users, n_items)
