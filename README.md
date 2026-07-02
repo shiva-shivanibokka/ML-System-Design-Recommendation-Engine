@@ -195,7 +195,7 @@ make test
 
 ### Simulate user events (Kafka producer)
 ```bash
-python kafka/producer.py --n-events 1000 --rate 10
+python streaming/producer.py --n-events 1000 --rate 10
 ```
 
 ---

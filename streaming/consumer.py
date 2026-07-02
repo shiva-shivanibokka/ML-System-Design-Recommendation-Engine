@@ -1,10 +1,13 @@
 """
-Kafka Event Consumer — Closes the Feedback Loop.
+Kafka Event Consumer — buffers interaction events for offline retraining.
 
-Consumes events from `user-interaction-events` topic and:
-  1. Writes click events back to the Feast offline store (as new training rows)
-  2. Updates the bandit router via the feedback API
-  3. Logs to PostgreSQL for analytics
+Consumes events from the `user-interaction-events` topic and buffers them,
+flushing to the Feast offline store as new training rows (on a size or time
+threshold, and on shutdown). Offsets are committed only after a successful
+flush (at-least-once) so events aren't lost on restart.
+
+(The real-time bandit update + PostgreSQL analytics write happen in the serving
+`/feedback/click` endpoint, not here — this consumer only feeds the nightly retrain.)
 
 This closes the data flywheel:
   User interacts → Kafka event → consumer → Feast offline store
@@ -18,7 +21,7 @@ In production at Netflix/Spotify:
   - We simulate the simpler nightly batch pattern here for reproducibility
 
 Run:
-    python kafka/consumer.py
+    python streaming/consumer.py
 """
 
 from __future__ import annotations
@@ -102,10 +105,34 @@ def trigger_nightly_retrain():
         print("[Scheduler] No interaction buffer found — skipping retrain")
         return
 
-    buf = pd.read_parquet(buffer_path)
+    # Snapshot the buffer up-front with an atomic rename so events that arrive
+    # from the consumer during the multi-minute retrain accumulate in a fresh
+    # buffer instead of being deleted by the old read-then-unlink race.
+    snapshot = buffer_path.with_name("new_interactions_retraining.parquet")
+
+    def _restore(src: Path) -> None:
+        """Fold a snapshot back into the live buffer so events are never lost."""
+        if not src.exists():
+            return
+        if buffer_path.exists():
+            pd.concat(
+                [pd.read_parquet(buffer_path), pd.read_parquet(src)], ignore_index=True
+            ).to_parquet(buffer_path, index=False)
+            src.unlink()
+        else:
+            src.rename(buffer_path)
+
+    try:
+        buffer_path.rename(snapshot)
+    except OSError as e:
+        print(f"[Scheduler] Could not snapshot buffer ({e}) — skipping")
+        return
+
+    buf = pd.read_parquet(snapshot)
     min_new = 100
     if len(buf) < min_new:
         print(f"[Scheduler] Only {len(buf)} new interactions (need {min_new}) — skipping")
+        _restore(snapshot)
         return
 
     print(f"[Scheduler] Triggering retrain on {len(buf)} new interactions")
@@ -115,10 +142,11 @@ def trigger_nightly_retrain():
         text=True,
     )
     if result.returncode == 0:
-        print("[Scheduler] Retrain complete — clearing interaction buffer")
-        buffer_path.unlink()
+        print("[Scheduler] Retrain complete — clearing snapshot")
+        snapshot.unlink()
     else:
         print(f"[Scheduler] Retrain failed:\n{result.stderr}")
+        _restore(snapshot)  # keep the events for the next run
 
 
 def consume():
@@ -133,7 +161,9 @@ def consume():
             group_id=settings.kafka.consumer_group,
             auto_offset_reset=settings.kafka.auto_offset_reset,
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-            enable_auto_commit=True,
+            # Commit offsets manually, only after a successful flush, so a crash
+            # between poll and flush can't silently drop buffered events.
+            enable_auto_commit=False,
         )
         print(f"[Consumer] Listening on {settings.kafka.topics.user_events}")
     except Exception as e:
@@ -145,25 +175,35 @@ def consume():
     scheduler.start()
     print("[Consumer] Nightly retraining scheduler started (fires at 02:00 daily)")
 
-    buffer = []
+    buffer: list = []
     last_flush = time.time()
 
-    try:
-        for message in consumer:
-            event = message.value
-            buffer.append(event)
+    def _flush() -> None:
+        nonlocal last_flush
+        if buffer:
+            flush_to_feast_offline(list(buffer))
+            consumer.commit()  # advance offsets only after the buffer is persisted
+            buffer.clear()
+        last_flush = time.time()
 
-            # Flush on size or time threshold
-            should_flush = (
+    try:
+        # poll() with a timeout returns control on idle, so the time-based flush
+        # fires even when no new events arrive (a `for message in consumer:` loop
+        # would block indefinitely on a quiet topic).
+        while True:
+            for records in consumer.poll(timeout_ms=1000).values():
+                buffer.extend(m.value for m in records)
+            if (
                 len(buffer) >= FLUSH_INTERVAL_EVENTS
                 or (time.time() - last_flush) >= FLUSH_INTERVAL_SECONDS
-            )
-            if should_flush:
-                flush_to_feast_offline(buffer)
-                buffer.clear()
-                last_flush = time.time()
+            ):
+                _flush()
+    except KeyboardInterrupt:
+        print("[Consumer] Shutting down…")
     finally:
+        _flush()  # never lose buffered events on shutdown
         scheduler.shutdown()
+        consumer.close()
 
 
 if __name__ == "__main__":

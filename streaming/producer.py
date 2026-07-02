@@ -22,10 +22,10 @@ Event schema:
 
 Usage:
   # Simulate 1000 events at 10 events/second:
-  python kafka/producer.py --n-events 1000 --rate 10
+  python streaming/producer.py --n-events 1000 --rate 10
 
   # Replay historical interactions from MovieLens:
-  python kafka/producer.py --mode historical
+  python streaming/producer.py --mode historical
 """
 
 from __future__ import annotations

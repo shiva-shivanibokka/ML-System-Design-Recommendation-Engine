@@ -81,7 +81,7 @@ The gateway's `serving/artifacts.py` downloads `models/**`, `data/indexes/**`, a
 5. Verify: open `https://<user>-recsys-gateway.hf.space/health` → `200` with
    `"models": {"ncf": true, "svd": true}` (confirms the HF Hub download worked).
 
-The container runs `entrypoint.sh`: Redpanda (Kafka-compatible) → `kafka/consumer.py`
+The container runs `entrypoint.sh`: Redpanda (Kafka-compatible) → `streaming/consumer.py`
 → `uvicorn serving.main:app`.
 
 ## Step 5 — Deploy the frontend to Vercel

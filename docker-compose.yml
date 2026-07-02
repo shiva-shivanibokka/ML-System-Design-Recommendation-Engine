@@ -171,7 +171,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./configs:/app/configs
-    command: python kafka/consumer.py
+    command: python streaming/consumer.py
     restart: on-failure
 
   # ---------------------------------------------------------------------------

@@ -15,12 +15,10 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-# 3. Start the Kafka consumer in the background.
-# NOTE: invoke as a SCRIPT (python kafka/consumer.py), not `python -m kafka.consumer`.
-# The local kafka/ dir shadows the installed kafka-python package under `-m`, which
-# would break `from kafka import KafkaConsumer`. Running the script keeps the package importable.
+# 3. Start the feedback consumer in the background. (The package is named
+# `streaming/`, not `kafka/`, so it can't shadow the installed kafka-python.)
 export KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-python kafka/consumer.py &
+python streaming/consumer.py &
 
 # 4. Foreground: the FastAPI gateway
 exec uvicorn serving.main:app --host 0.0.0.0 --port 8000
