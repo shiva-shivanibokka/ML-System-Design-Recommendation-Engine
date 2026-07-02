@@ -25,9 +25,8 @@ from __future__ import annotations
 from datetime import timedelta
 from pathlib import Path
 
-import pandas as pd
-from feast import Entity, Feature, FeatureStore, FeatureView, FileSource, ValueType
-from feast.data_format import ParquetFormat
+from feast import Entity, FeatureView, Field, FileSource
+from feast.types import Float64, Int32, Int64, String
 
 # ---------------------------------------------------------------------------
 # Entities (primary keys)
@@ -35,13 +34,13 @@ from feast.data_format import ParquetFormat
 
 user_entity = Entity(
     name="user_id",
-    value_type=ValueType.INT64,
+    join_keys=["user_id"],
     description="Unique user identifier from MovieLens 1M",
 )
 
 item_entity = Entity(
     name="item_id",
-    value_type=ValueType.INT64,
+    join_keys=["item_id"],
     description="Unique item (movie) identifier from MovieLens 1M",
 )
 
@@ -53,27 +52,27 @@ _base = Path(__file__).parent.parent.parent / "data" / "processed"
 
 user_stats_source = FileSource(
     path=str(_base / "user_stats.parquet"),
-    event_timestamp_column="last_interaction_ts",
+    timestamp_field="last_interaction_ts",
     created_timestamp_column="first_interaction_ts",
 )
 
 item_stats_source = FileSource(
     path=str(_base / "item_stats.parquet"),
-    event_timestamp_column="last_interaction_ts",
+    timestamp_field="last_interaction_ts",
 )
 
 # ---------------------------------------------------------------------------
-# Feature Views
+# Feature Views (Feast 0.40 API: Field/schema/feast.types, Entity objects)
 # ---------------------------------------------------------------------------
 
 user_feature_view = FeatureView(
     name="user_features",
-    entities=["user_id"],
+    entities=[user_entity],
     ttl=timedelta(days=7),  # features expire after 7 days without refresh
-    features=[
-        Feature(name="interaction_count", dtype=ValueType.INT64),
-        Feature(name="is_cold_user", dtype=ValueType.INT32),
-        Feature(name="avg_rating_proxy", dtype=ValueType.DOUBLE),
+    schema=[
+        Field(name="interaction_count", dtype=Int64),
+        Field(name="is_cold_user", dtype=Int32),
+        Field(name="avg_rating_proxy", dtype=Float64),
     ],
     source=user_stats_source,
     tags={"team": "recsys", "tier": "online"},
@@ -81,13 +80,13 @@ user_feature_view = FeatureView(
 
 item_feature_view = FeatureView(
     name="item_features",
-    entities=["item_id"],
+    entities=[item_entity],
     ttl=timedelta(days=30),  # item features are more stable
-    features=[
-        Feature(name="interaction_count", dtype=ValueType.INT64),
-        Feature(name="is_cold_item", dtype=ValueType.INT32),
-        Feature(name="popularity_score", dtype=ValueType.DOUBLE),
-        Feature(name="primary_genre", dtype=ValueType.STRING),
+    schema=[
+        Field(name="interaction_count", dtype=Int64),
+        Field(name="is_cold_item", dtype=Int32),
+        Field(name="popularity_score", dtype=Float64),
+        Field(name="primary_genre", dtype=String),
     ],
     source=item_stats_source,
     tags={"team": "recsys", "tier": "online"},
