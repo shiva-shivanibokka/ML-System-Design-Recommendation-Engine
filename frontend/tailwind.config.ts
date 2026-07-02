@@ -44,25 +44,27 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Marquee signature palette
-        ink: "#0E0C0B",
-        panel: "#16120E",
-        raised: "#211A14",
-        line: "#332A20",
-        paper: "#EFE6D8",
+        // Spectrum Daylight palette (light)
+        ink: "#ECE7F8", // soft fill for bar tracks / inputs on white
+        panel: "#FFFFFF", // card surface
+        raised: "#F5F2FC",
+        line: "#E7E1F4",
+        paper: "#211C39", // deep ink (text)
         signal: {
-          DEFAULT: "#E7A33A",
-          dim: "#B67E28",
-          soft: "rgba(231,163,58,0.13)",
+          DEFAULT: "#6D4AFF", // violet primary
+          dim: "#5636E0",
+          soft: "rgba(109,74,255,0.12)",
         },
         live: {
-          DEFAULT: "#37C4A4",
-          soft: "rgba(55,196,164,0.13)",
+          DEFAULT: "#0FB5A5", // teal
+          soft: "rgba(15,181,165,0.13)",
         },
         alert: {
-          DEFAULT: "#EA5A3D",
-          soft: "rgba(234,90,61,0.13)",
+          DEFAULT: "#FF4D5E", // coral
+          soft: "rgba(255,77,94,0.12)",
         },
+        pink: "#FF4D8D",
+        amber: "#FFB020",
       },
       borderRadius: {
         lg: "var(--radius)",

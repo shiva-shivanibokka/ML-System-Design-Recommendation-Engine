@@ -4,27 +4,27 @@
 
 @layer base {
   :root {
-    /* Marquee: warm charcoal base, marquee-amber signal */
-    --background: 30 14% 4%;
-    --foreground: 33 32% 89%;
-    --card: 30 20% 7%;
-    --card-foreground: 33 32% 89%;
-    --popover: 30 22% 8%;
-    --popover-foreground: 33 32% 89%;
-    --primary: 38 78% 56%;
-    --primary-foreground: 30 40% 6%;
-    --secondary: 30 22% 12%;
-    --secondary-foreground: 33 32% 89%;
-    --muted: 30 20% 12%;
-    --muted-foreground: 34 12% 56%;
-    --accent: 30 26% 14%;
-    --accent-foreground: 33 32% 89%;
-    --destructive: 11 80% 58%;
-    --destructive-foreground: 33 32% 92%;
-    --border: 32 22% 15%;
-    --input: 32 22% 15%;
-    --ring: 38 78% 56%;
-    --radius: 0.4rem;
+    /* Spectrum Daylight — bright canvas, violet primary */
+    --background: 264 60% 98%;
+    --foreground: 250 34% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 250 34% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 250 34% 16%;
+    --primary: 252 100% 64%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 258 50% 97%;
+    --secondary-foreground: 250 34% 16%;
+    --muted: 258 50% 96%;
+    --muted-foreground: 252 10% 46%;
+    --accent: 255 55% 95%;
+    --accent-foreground: 250 34% 16%;
+    --destructive: 354 100% 65%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 255 45% 92%;
+    --input: 255 45% 92%;
+    --ring: 252 100% 64%;
+    --radius: 0.7rem;
   }
 }
 
@@ -35,52 +35,104 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "ss01" 1, "cv01" 1, "calt" 1;
-    /* Warm vignette so the dark never reads as flat black */
-    background-image:
-      radial-gradient(120% 90% at 12% -10%, rgba(231, 163, 58, 0.06), transparent 55%),
-      radial-gradient(90% 80% at 100% 0%, rgba(55, 196, 164, 0.045), transparent 50%);
-    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  /* Every card surface gets a soft lift on the light canvas */
+  .bg-panel {
+    box-shadow:
+      0 1px 2px rgba(40, 24, 90, 0.04),
+      0 6px 20px -8px rgba(40, 24, 90, 0.08);
   }
 }
 
 @layer utilities {
-  .grain::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    opacity: 0.035;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
   .text-balance {
     text-wrap: balance;
   }
-  /* Marquee bulb ticker for rails */
-  .marquee-rule {
-    background-image: radial-gradient(circle, rgba(231, 163, 58, 0.5) 1px, transparent 1.4px);
-    background-size: 11px 100%;
-    background-repeat: repeat-x;
-    background-position: center;
+
+  /* Moving aurora background */
+  .aurora {
+    position: fixed;
+    inset: -25vmax;
+    z-index: 0;
+    pointer-events: none;
+    filter: blur(64px);
+    opacity: 0.65;
+  }
+  .aurora span {
+    position: absolute;
+    border-radius: 50%;
+    mix-blend-mode: multiply;
+    will-change: transform;
+  }
+  .aurora .b1 {
+    width: 46vw;
+    height: 46vw;
+    left: -6%;
+    top: -8%;
+    background: radial-gradient(circle at 50% 50%, #b7a4ff, transparent 62%);
+    animation: drift1 26s ease-in-out infinite;
+  }
+  .aurora .b2 {
+    width: 42vw;
+    height: 42vw;
+    right: -8%;
+    top: -6%;
+    background: radial-gradient(circle at 50% 50%, #ffb0d0, transparent 62%);
+    animation: drift2 30s ease-in-out infinite;
+  }
+  .aurora .b3 {
+    width: 40vw;
+    height: 40vw;
+    left: 20%;
+    bottom: -14%;
+    background: radial-gradient(circle at 50% 50%, #9ff0e4, transparent 62%);
+    animation: drift3 34s ease-in-out infinite;
+  }
+  .aurora .b4 {
+    width: 34vw;
+    height: 34vw;
+    right: 12%;
+    bottom: -10%;
+    background: radial-gradient(circle at 50% 50%, #ffe0a3, transparent 62%);
+    animation: drift1 40s ease-in-out infinite reverse;
   }
 }
 
+@keyframes drift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(6vw, 5vh) scale(1.15); }
+}
+@keyframes drift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-7vw, 6vh) scale(1.1); }
+}
+@keyframes drift3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(5vw, -6vh) scale(1.2); }
+}
+
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(32 22% 20%);
+  background: hsl(255 30% 82%);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(38 60% 40%);
+  background: hsl(252 60% 70%);
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .aurora span {
+    animation: none !important;
+  }
   *,
   *::before,
   *::after {

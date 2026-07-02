@@ -166,13 +166,16 @@ export default function RecommendPage() {
     <div className="space-y-6">
       {/* Hero */}
       <section className="pt-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-signal">
+        <p className="font-mono text-xs font-semibold uppercase tracking-[0.28em] text-signal">
           Real-time serving
         </p>
-        <h1 className="mt-2 max-w-3xl font-display text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:text-4xl">
-          Ask the engine what a user should watch next.
+        <h1 className="mt-3 max-w-4xl font-display text-4xl font-extrabold leading-[1.03] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+          What should this user{" "}
+          <span className="bg-gradient-to-r from-signal via-pink to-amber bg-clip-text text-transparent">
+            watch next?
+          </span>
         </h1>
-        <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
+        <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
           Every request runs a five-stage pipeline —{" "}
           <span className="text-foreground">FAISS retrieval</span>
           <Info k="faiss" className="mx-0.5 align-middle" /> →{" "}

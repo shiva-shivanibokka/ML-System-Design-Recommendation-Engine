@@ -1,32 +1,72 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { GLOSSARY, type GlossaryKey } from "@/lib/glossary";
 import { cn } from "@/lib/utils";
 
+const WIDTH = 272;
+
 /**
  * A "?" affordance that reveals a plain-language definition on hover or tap.
- * Pulls copy from lib/glossary so every term reads the same everywhere.
+ * The panel renders in a portal with fixed, viewport-clamped coordinates, so it
+ * never gets clipped by an overflow-hidden card and never spills off-screen.
  */
 export function Info({ k, className }: { k: GlossaryKey; className?: string }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; above: boolean }>({
+    top: 0,
+    left: 0,
+    above: false,
+  });
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const entry = GLOSSARY[k];
+
+  useEffect(() => setMounted(true), []);
+
+  const place = () => {
+    const b = btnRef.current?.getBoundingClientRect();
+    if (!b) return;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const left = Math.min(Math.max(b.left + b.width / 2 - WIDTH / 2, 8), vw - WIDTH - 8);
+    const above = b.bottom + 140 > vh; // flip up if not enough room below
+    const top = above ? b.top - 8 : b.bottom + 8;
+    setPos({ top, left, above });
+  };
+
+  useLayoutEffect(() => {
+    if (open) place();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
+    const onScroll = () => setOpen(false);
+    const onDoc = (e: MouseEvent) => {
+      if (
+        btnRef.current?.contains(e.target as Node) ||
+        panelRef.current?.contains(e.target as Node)
+      )
+        return;
+      setOpen(false);
+    };
+    window.addEventListener("scroll", onScroll, true);
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      document.removeEventListener("mousedown", onDoc);
+    };
   }, [open]);
 
   if (!entry) return null;
 
   return (
-    <span ref={ref} className={cn("relative inline-flex", className)}>
+    <>
       <button
+        ref={btnRef}
         type="button"
         aria-label={`What is ${entry.term}?`}
         onMouseEnter={() => setOpen(true)}
@@ -36,25 +76,39 @@ export function Info({ k, className }: { k: GlossaryKey; className?: string }) {
           setOpen((v) => !v);
         }}
         className={cn(
-          "flex h-4 w-4 items-center justify-center rounded-full border border-line text-[10px] font-semibold leading-none transition-colors",
+          "inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-bold leading-none transition-colors",
           open
-            ? "border-signal/60 bg-signal/15 text-signal"
-            : "text-muted-foreground hover:border-signal/50 hover:text-signal"
+            ? "border-signal bg-signal text-white"
+            : "border-signal/40 text-signal/70 hover:border-signal hover:text-signal",
+          className
         )}
       >
         ?
       </button>
-      {open && (
-        <span
-          role="tooltip"
-          className="animate-fade-up absolute left-1/2 top-6 z-50 w-64 -translate-x-1/2 rounded-lg border border-line bg-popover p-3 text-left shadow-xl shadow-black/40"
-        >
-          <span className="mb-1 block font-mono text-[11px] font-semibold uppercase tracking-wide text-signal">
-            {entry.term}
-          </span>
-          <span className="block text-xs leading-relaxed text-foreground/85">{entry.body}</span>
-        </span>
-      )}
-    </span>
+      {mounted &&
+        open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            role="tooltip"
+            style={{
+              position: "fixed",
+              top: pos.top,
+              left: pos.left,
+              width: WIDTH,
+              transform: pos.above ? "translateY(-100%)" : undefined,
+            }}
+            className="z-[100] rounded-xl border border-line bg-white p-3.5 shadow-[0_12px_40px_-8px_rgba(40,24,90,0.35)]"
+          >
+            <span className="mb-1 block font-mono text-[11px] font-bold uppercase tracking-wide text-signal">
+              {entry.term}
+            </span>
+            <span className="block text-[12.5px] leading-relaxed text-foreground/85">
+              {entry.body}
+            </span>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }

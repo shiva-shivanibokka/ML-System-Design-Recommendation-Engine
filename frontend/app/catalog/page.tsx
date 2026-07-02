@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
   genreHue,
@@ -15,7 +15,7 @@ export default function CatalogPage() {
   const [map, setMap] = useState<EmbeddingMap | null>(null);
   const [metrics, setMetrics] = useState<ModelMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [active, setActive] = useState<Set<string>>(new Set()); // genre filter (empty = all)
+  const [active, setActive] = useState<Set<string>>(new Set());
   const [userId, setUserId] = useState("");
   const [highlight, setHighlight] = useState<Set<number>>(new Set());
   const [highlightUser, setHighlightUser] = useState<string | null>(null);
@@ -46,17 +46,19 @@ export default function CatalogPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <section className="pt-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-signal">
+        <p className="font-mono text-xs font-semibold uppercase tracking-[0.28em] text-signal">
           The catalog, as the model sees it
         </p>
-        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">
-          Every movie is a point in embedding space.
+        <h1 className="mt-3 max-w-4xl font-display text-4xl font-extrabold leading-[1.03] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+          Every movie is a{" "}
+          <span className="bg-gradient-to-r from-signal via-pink to-live bg-clip-text text-transparent">
+            point in space.
+          </span>
         </h1>
-        <p className="mt-2 max-w-2xl text-[15px] text-muted-foreground">
-          A 2D t-SNE projection
-          <Info k="embedding" className="mx-0.5 align-middle" /> of all{" "}
+        <p className="mt-5 flex flex-wrap items-center gap-x-1.5 text-base leading-relaxed text-muted-foreground sm:text-lg">
+          A 2D t-SNE projection <Info k="embedding" /> of all{" "}
           {map ? map.count.toLocaleString() : "3,533"} NeuMF item vectors. Nearby movies are ones the
           model treats as similar — retrieval literally searches this neighborhood.
         </p>
@@ -68,113 +70,109 @@ export default function CatalogPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_300px]">
-        {/* Galaxy */}
-        <div className="rounded-xl border border-line bg-panel p-3">
-          <Galaxy points={map?.points ?? []} active={active} highlight={highlight} />
+      {/* Control strip */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-line bg-panel p-4 lg:flex-row lg:items-center">
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+            Overlay picks
+          </span>
+          <input
+            type="number"
+            placeholder="user ID"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && overlayUser()}
+            className="h-9 w-28 rounded-lg border border-line bg-ink px-3 font-mono text-sm outline-none focus:border-signal"
+          />
+          <button
+            onClick={overlayUser}
+            className="h-9 rounded-lg bg-signal px-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          >
+            Show
+          </button>
+          {highlightUser && (
+            <button
+              onClick={() => {
+                setHighlight(new Set());
+                setHighlightUser(null);
+              }}
+              className="font-mono text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              clear ✕
+            </button>
+          )}
         </div>
 
-        {/* Controls */}
-        <div className="space-y-5">
-          <div className="rounded-xl border border-line bg-panel p-4">
-            <h2 className="mb-2 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-              Overlay a user&apos;s picks
-            </h2>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                placeholder="user ID"
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                className="h-9 w-full rounded-md border border-line bg-ink px-3 font-mono text-sm outline-none focus:border-signal/60"
-              />
-              <button
-                onClick={overlayUser}
-                className="h-9 shrink-0 rounded-md bg-signal px-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
-              >
-                Show
-              </button>
-            </div>
-            {highlightUser && (
-              <p className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  <span className="text-signal">◆</span> {highlight.size} picks for user {highlightUser}
-                </span>
-                <button
-                  onClick={() => {
-                    setHighlight(new Set());
-                    setHighlightUser(null);
-                  }}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  clear
-                </button>
-              </p>
-            )}
-            <p className="mt-2 text-xs text-muted-foreground">
-              See how one user&apos;s recommendations cluster in the space.
-            </p>
-          </div>
+        <div className="h-px w-full bg-line lg:h-8 lg:w-px" />
 
-          {/* Genre legend / filter */}
-          <div className="rounded-xl border border-line bg-panel p-4">
-            <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-              Genres {active.size > 0 && `· ${active.size} shown`}
-            </h2>
-            <div className="flex flex-wrap gap-1.5">
-              {(map?.genres ?? []).map((g) => {
-                const on = active.size === 0 || active.has(g);
-                return (
-                  <button
-                    key={g}
-                    onClick={() => toggleGenre(g)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition-opacity",
-                      on ? "border-line opacity-100" : "border-line opacity-35"
-                    )}
-                  >
-                    <span className="h-2 w-2 rounded-full" style={{ background: genreHue(g) }} />
-                    {g}
-                  </button>
-                );
-              })}
-            </div>
-            {active.size > 0 && (
+        {/* Genre legend / filter */}
+        <div className="flex flex-1 flex-wrap items-center gap-1.5">
+          {(map?.genres ?? []).map((g) => {
+            const on = active.size === 0 || active.has(g);
+            return (
               <button
-                onClick={() => setActive(new Set())}
-                className="mt-2 font-mono text-[11px] text-muted-foreground hover:text-signal"
+                key={g}
+                onClick={() => toggleGenre(g)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all",
+                  on
+                    ? "border-line bg-white opacity-100"
+                    : "border-transparent bg-muted opacity-45"
+                )}
+                style={on ? { borderColor: `${genreHue(g)}66` } : undefined}
               >
-                reset filter
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: genreHue(g) }} />
+                {g}
               </button>
-            )}
-          </div>
+            );
+          })}
+          {active.size > 0 && (
+            <button
+              onClick={() => setActive(new Set())}
+              className="ml-1 font-mono text-[11px] text-signal hover:underline"
+            >
+              reset
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Big galaxy */}
+      <div className="overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-white to-secondary p-2">
+        <Galaxy points={map?.points ?? []} active={active} highlight={highlight} />
+      </div>
+
+      {highlightUser && (
+        <p className="-mt-4 text-center font-mono text-xs text-muted-foreground">
+          <span className="text-signal">◆</span> {highlight.size} recommendations for user{" "}
+          {highlightUser} highlighted above
+        </p>
+      )}
+
       {/* Model card */}
       <section>
-        <div className="mb-3 flex items-center gap-1.5">
-          <h2 className="font-display text-xl font-bold text-foreground">Model card</h2>
+        <div className="mb-4 flex items-baseline gap-2">
+          <h2 className="font-display text-2xl font-bold text-foreground">Model card</h2>
           <span className="font-mono text-xs text-muted-foreground">· offline evaluation</span>
         </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {metrics &&
             Object.entries(metrics.models).map(([key, m]) => (
-              <div key={key} className="rounded-xl border border-line bg-panel p-5">
+              <div key={key} className="rounded-2xl border border-line bg-panel p-6">
                 <div className="flex items-center justify-between">
-                  <span className="font-display text-lg font-bold text-foreground">{m.name}</span>
+                  <span className="font-display text-xl font-bold text-foreground">{m.name}</span>
                   <span className="font-mono text-xs text-muted-foreground">{m.family}</span>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="mt-5 grid grid-cols-2 gap-4">
                   <Metric label="HR@10" value={m.hr_at_10} infoKey="hr" />
                   <Metric label="NDCG@10" value={m.ndcg_at_10} infoKey="ndcg" />
                 </div>
-                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{m.note}</p>
+                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{m.note}</p>
               </div>
             ))}
         </div>
         {metrics && (
-          <p className="mt-3 font-mono text-xs text-muted-foreground">
+          <p className="mt-4 font-mono text-xs text-muted-foreground">
             {metrics.dataset} · {metrics.n_users.toLocaleString()} users ·{" "}
             {metrics.n_items.toLocaleString()} items · {metrics.eval_protocol}
           </p>
@@ -194,11 +192,11 @@ function Metric({
   infoKey: "hr" | "ndcg";
 }) {
   return (
-    <div className="rounded-lg border border-line bg-ink/50 p-3">
-      <p className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+    <div className="rounded-xl border border-line bg-raised p-4">
+      <p className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
         {label} <Info k={infoKey} />
       </p>
-      <p className="mt-1 font-mono text-2xl font-bold text-signal">{value.toFixed(4)}</p>
+      <p className="mt-1 font-mono text-3xl font-extrabold text-signal">{value.toFixed(4)}</p>
     </div>
   );
 }
@@ -216,28 +214,29 @@ function Galaxy({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ p: EmbeddingPoint; sx: number; sy: number } | null>(null);
-  const [size, setSize] = useState({ w: 800, h: 520 });
+  const [size, setSize] = useState({ w: 900, h: 680 });
 
-  // Track container width
   useEffect(() => {
     if (!wrapRef.current) return;
     const el = wrapRef.current;
-    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: 520 }));
+    const ro = new ResizeObserver(() =>
+      setSize({ w: el.clientWidth, h: Math.max(Math.min(el.clientWidth * 0.62, 760), 460) })
+    );
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
   const project = useCallback(
     (p: EmbeddingPoint) => {
-      const pad = 24;
-      const sx = pad + ((p.x + 1) / 2) * (size.w - 2 * pad);
-      const sy = pad + ((p.y + 1) / 2) * (size.h - 2 * pad);
-      return { sx, sy };
+      const pad = 28;
+      return {
+        sx: pad + ((p.x + 1) / 2) * (size.w - 2 * pad),
+        sy: pad + ((p.y + 1) / 2) * (size.h - 2 * pad),
+      };
     },
     [size]
   );
 
-  // Draw
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -248,52 +247,48 @@ function Galaxy({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, size.w, size.h);
 
-    const filtered = (g: string) => active.size === 0 || active.has(g);
+    const shown = (g: string) => active.size === 0 || active.has(g);
 
-    // base points
     for (const p of points) {
       const { sx, sy } = project(p);
-      const on = filtered(p.genre);
+      const on = shown(p.genre);
       ctx.beginPath();
-      ctx.arc(sx, sy, on ? 2.1 : 1.2, 0, Math.PI * 2);
+      ctx.arc(sx, sy, on ? 2.6 : 1.4, 0, Math.PI * 2);
       ctx.fillStyle = genreHue(p.genre);
-      ctx.globalAlpha = on ? 0.7 : 0.08;
+      ctx.globalAlpha = on ? 0.85 : 0.1;
       ctx.fill();
     }
     ctx.globalAlpha = 1;
 
-    // highlighted (a user's recommendations)
     if (highlight.size) {
       for (const p of points) {
         if (!highlight.has(p.item_id)) continue;
         const { sx, sy } = project(p);
         ctx.beginPath();
-        ctx.arc(sx, sy, 6, 0, Math.PI * 2);
-        ctx.fillStyle = "#E7A33A";
+        ctx.arc(sx, sy, 7, 0, Math.PI * 2);
+        ctx.fillStyle = "#6D4AFF";
         ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "#0E0C0B";
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = "#FFFFFF";
         ctx.stroke();
       }
     }
 
-    // hover ring
     if (hover) {
       ctx.beginPath();
-      ctx.arc(hover.sx, hover.sy, 7, 0, Math.PI * 2);
-      ctx.strokeStyle = "#EFE6D8";
-      ctx.lineWidth = 1.5;
+      ctx.arc(hover.sx, hover.sy, 8, 0, Math.PI * 2);
+      ctx.strokeStyle = "#211C39";
+      ctx.lineWidth = 2;
       ctx.stroke();
     }
   }, [points, active, highlight, hover, project, size]);
 
-  // Hover hit-test
   function onMove(e: React.MouseEvent) {
     const rect = canvasRef.current!.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     let best: { p: EmbeddingPoint; sx: number; sy: number } | null = null;
-    let bestD = 100;
+    let bestD = 120;
     for (const p of points) {
       if (active.size > 0 && !active.has(p.genre)) continue;
       const { sx, sy } = project(p);
@@ -307,24 +302,24 @@ function Galaxy({
   }
 
   return (
-    <div ref={wrapRef} className="relative w-full" style={{ height: 520 }}>
+    <div ref={wrapRef} className="relative w-full" style={{ height: size.h }}>
       <canvas
         ref={canvasRef}
         style={{ width: size.w, height: size.h }}
         onMouseMove={onMove}
         onMouseLeave={() => setHover(null)}
-        className="rounded-lg"
+        className="rounded-xl"
       />
       {hover && (
         <div
-          className="pointer-events-none absolute z-10 max-w-[200px] -translate-x-1/2 rounded-md border border-line bg-popover px-2.5 py-1.5 shadow-xl"
+          className="pointer-events-none absolute z-10 max-w-[220px] -translate-x-1/2 rounded-lg border border-line bg-white px-3 py-2 shadow-[0_10px_30px_-6px_rgba(40,24,90,0.3)]"
           style={{
-            left: Math.min(Math.max(hover.sx, 90), size.w - 90),
-            top: hover.sy + 12,
+            left: Math.min(Math.max(hover.sx, 110), size.w - 110),
+            top: hover.sy + 14,
           }}
         >
-          <p className="text-xs font-semibold leading-tight text-foreground">{hover.p.title}</p>
-          <p className="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+          <p className="text-[13px] font-semibold leading-tight text-foreground">{hover.p.title}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
             <span className="h-2 w-2 rounded-full" style={{ background: genreHue(hover.p.genre) }} />
             {hover.p.genre}
           </p>
