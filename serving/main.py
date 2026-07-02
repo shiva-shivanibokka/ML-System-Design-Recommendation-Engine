@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import pickle
 import sys
 import time
@@ -68,6 +69,7 @@ from sqlalchemy import create_engine, text
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from configs.settings import settings
+from serving.artifacts import download_artifacts
 from serving.bandit import bandit
 from serving.explain import explain_recommendations as _explain_recs
 from serving.cold_start import cold_start_handler
@@ -130,6 +132,15 @@ async def lifespan(app: FastAPI):
     """Load all models and indexes at startup."""
     log.info("startup.begin")
     t0 = time.time()
+
+    # Fetch model + data artifacts from HF Hub (no-op if HF_MODEL_REPO unset).
+    # Must run BEFORE any Path(...).exists() check or pd.read_parquet below so a
+    # container that ships with empty models/+data/ self-populates on boot.
+    download_artifacts(
+        repo_id=os.getenv("HF_MODEL_REPO"),
+        token=os.getenv("HF_TOKEN"),
+    )
+
     proc = Path(settings.data.processed_dir)
 
     # Load NCF model
