@@ -37,7 +37,7 @@ function betaPDF(x: number, alpha: number, beta: number): number {
   return Math.exp(lp);
 }
 
-const MODEL_COLORS: Record<string, string> = { svd: "#FFB020", ncf: "#6D4AFF" };
+const MODEL_COLORS: Record<string, string> = { svd: "#FFB020", ncf: "#22D3EE" };
 const modelColor = (m: string) => MODEL_COLORS[m] ?? "#8A8A8A";
 
 export default function BanditPage() {
@@ -94,13 +94,13 @@ export default function BanditPage() {
           <p className="font-mono text-xs font-semibold uppercase tracking-[0.28em] text-signal">
             Online experimentation
           </p>
-          <h1 className="mt-3 font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+          <h1 className="mt-3 font-display text-5xl font-extrabold leading-[0.98] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
             Which model wins?{" "}
-            <span className="bg-gradient-to-r from-signal to-pink bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-signal via-pink to-cyan bg-clip-text text-transparent">
               Let traffic decide.
             </span>
           </h1>
-          <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
+          <p className="mt-5 max-w-5xl text-lg text-muted-foreground sm:text-xl">
             A Thompson-Sampling bandit
             <Info k="bandit" className="mx-0.5 align-middle" /> holds a belief about each model&apos;s
             click rate and routes each request to whichever looks best right now. Click titles on the
@@ -164,28 +164,28 @@ export default function BanditPage() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData ?? []} margin={{ top: 8, right: 8, bottom: 4, left: -18 }}>
-                    <CartesianGrid stroke="#E7E1F4" strokeDasharray="2 4" vertical={false} />
+                    <CartesianGrid stroke="#2C2550" strokeDasharray="2 4" vertical={false} />
                     <XAxis
                       dataKey="x"
                       type="number"
                       domain={[0, 1]}
-                      tick={{ fontSize: 10, fill: "#6E6784", fontFamily: "monospace" }}
+                      tick={{ fontSize: 10, fill: "#9B93C4", fontFamily: "monospace" }}
                       tickFormatter={(v) => v.toFixed(1)}
-                      stroke="#E7E1F4"
+                      stroke="#2C2550"
                     />
                     <YAxis
-                      tick={{ fontSize: 10, fill: "#6E6784", fontFamily: "monospace" }}
-                      stroke="#E7E1F4"
+                      tick={{ fontSize: 10, fill: "#9B93C4", fontFamily: "monospace" }}
+                      stroke="#2C2550"
                     />
                     <Tooltip
                       contentStyle={{
-                        background: "#FFFFFF",
-                        border: "1px solid #E7E1F4",
+                        background: "#1E1838",
+                        border: "1px solid #2C2550",
                         borderRadius: 10,
                         fontSize: 12,
                         fontFamily: "monospace",
-                        color: "#211C39",
-                        boxShadow: "0 10px 30px -8px rgba(40,24,90,0.3)",
+                        color: "#F4F1FF",
+                        boxShadow: "0 10px 30px -8px rgba(0,0,0,0.6)",
                       }}
                       labelFormatter={(v) => `p(click) = ${Number(v).toFixed(2)}`}
                       formatter={(val: number, name: string) => [val.toFixed(2), name.toUpperCase()]}

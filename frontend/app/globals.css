@@ -4,27 +4,27 @@
 
 @layer base {
   :root {
-    /* Spectrum Daylight — bright canvas, violet primary */
-    --background: 264 60% 98%;
-    --foreground: 250 34% 16%;
-    --card: 0 0% 100%;
-    --card-foreground: 250 34% 16%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 250 34% 16%;
-    --primary: 252 100% 64%;
+    /* Neon Cinema — deep violet-black canvas, vivid multi-color accents */
+    --background: 256 44% 6%;
+    --foreground: 255 60% 96%;
+    --card: 255 40% 11%;
+    --card-foreground: 255 60% 96%;
+    --popover: 255 40% 13%;
+    --popover-foreground: 255 60% 96%;
+    --primary: 258 90% 66%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 258 50% 97%;
-    --secondary-foreground: 250 34% 16%;
-    --muted: 258 50% 96%;
-    --muted-foreground: 252 10% 46%;
-    --accent: 255 55% 95%;
-    --accent-foreground: 250 34% 16%;
-    --destructive: 354 100% 65%;
+    --secondary: 255 38% 16%;
+    --secondary-foreground: 255 60% 96%;
+    --muted: 255 38% 16%;
+    --muted-foreground: 252 26% 70%;
+    --accent: 255 38% 19%;
+    --accent-foreground: 255 60% 96%;
+    --destructive: 354 100% 68%;
     --destructive-foreground: 0 0% 100%;
-    --border: 255 45% 92%;
-    --input: 255 45% 92%;
-    --ring: 252 100% 64%;
-    --radius: 0.7rem;
+    --border: 253 34% 22%;
+    --input: 253 34% 22%;
+    --ring: 258 90% 66%;
+    --radius: 0.8rem;
   }
 }
 
@@ -34,16 +34,15 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "ss01" 1, "cv01" 1, "calt" 1;
+    font-feature-settings: "ss01" 1, "calt" 1;
   }
 }
 
 @layer components {
-  /* Every card surface gets a soft lift on the light canvas */
   .bg-panel {
     box-shadow:
-      0 1px 2px rgba(40, 24, 90, 0.04),
-      0 6px 20px -8px rgba(40, 24, 90, 0.08);
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 10px 34px -12px rgba(0, 0, 0, 0.7);
   }
 }
 
@@ -52,66 +51,66 @@
     text-wrap: balance;
   }
 
-  /* Moving aurora background */
+  /* Glowing aurora on the dark canvas */
   .aurora {
     position: fixed;
-    inset: -25vmax;
+    inset: -20vmax;
     z-index: 0;
     pointer-events: none;
-    filter: blur(64px);
-    opacity: 0.65;
+    filter: blur(70px);
+    opacity: 0.55;
   }
   .aurora span {
     position: absolute;
     border-radius: 50%;
-    mix-blend-mode: multiply;
+    mix-blend-mode: screen;
     will-change: transform;
   }
   .aurora .b1 {
-    width: 46vw;
-    height: 46vw;
+    width: 44vw;
+    height: 44vw;
     left: -6%;
-    top: -8%;
-    background: radial-gradient(circle at 50% 50%, #b7a4ff, transparent 62%);
-    animation: drift1 26s ease-in-out infinite;
+    top: -10%;
+    background: radial-gradient(circle at 50% 50%, #8b5cf6, transparent 62%);
+    animation: drift1 24s ease-in-out infinite;
   }
   .aurora .b2 {
-    width: 42vw;
-    height: 42vw;
+    width: 40vw;
+    height: 40vw;
     right: -8%;
-    top: -6%;
-    background: radial-gradient(circle at 50% 50%, #ffb0d0, transparent 62%);
+    top: -4%;
+    background: radial-gradient(circle at 50% 50%, #ff4d9d, transparent 62%);
     animation: drift2 30s ease-in-out infinite;
   }
   .aurora .b3 {
-    width: 40vw;
-    height: 40vw;
-    left: 20%;
-    bottom: -14%;
-    background: radial-gradient(circle at 50% 50%, #9ff0e4, transparent 62%);
+    width: 42vw;
+    height: 42vw;
+    left: 24%;
+    bottom: -16%;
+    background: radial-gradient(circle at 50% 50%, #22d3ee, transparent 62%);
     animation: drift3 34s ease-in-out infinite;
   }
   .aurora .b4 {
-    width: 34vw;
-    height: 34vw;
-    right: 12%;
-    bottom: -10%;
-    background: radial-gradient(circle at 50% 50%, #ffe0a3, transparent 62%);
+    width: 30vw;
+    height: 30vw;
+    right: 16%;
+    bottom: -8%;
+    background: radial-gradient(circle at 50% 50%, #a3e635, transparent 64%);
     animation: drift1 40s ease-in-out infinite reverse;
   }
 }
 
 @keyframes drift1 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(6vw, 5vh) scale(1.15); }
+  50% { transform: translate(6vw, 5vh) scale(1.18); }
 }
 @keyframes drift2 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-7vw, 6vh) scale(1.1); }
+  50% { transform: translate(-7vw, 6vh) scale(1.12); }
 }
 @keyframes drift3 {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(5vw, -6vh) scale(1.2); }
+  50% { transform: translate(5vw, -7vh) scale(1.22); }
 }
 
 ::-webkit-scrollbar {
@@ -122,11 +121,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(255 30% 82%);
+  background: hsl(255 30% 26%);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(252 60% 70%);
+  background: hsl(258 70% 55%);
 }
 
 @media (prefers-reduced-motion: reduce) {

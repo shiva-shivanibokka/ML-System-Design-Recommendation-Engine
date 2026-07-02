@@ -85,13 +85,13 @@ export default function MonitoringPage() {
           <p className="font-mono text-xs font-semibold uppercase tracking-[0.28em] text-signal">
             Model health
           </p>
-          <h1 className="mt-3 font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+          <h1 className="mt-3 font-display text-5xl font-extrabold leading-[0.98] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
             Is the model still{" "}
-            <span className="bg-gradient-to-r from-live to-signal bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-live via-signal to-pink bg-clip-text text-transparent">
               healthy?
             </span>
           </h1>
-          <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
+          <p className="mt-5 max-w-5xl text-lg text-muted-foreground sm:text-xl">
             Three staleness signals a real team watches: click-through rate, catalog
             coverage, and score drift. When any crosses a threshold, it&apos;s time to retrain.
           </p>

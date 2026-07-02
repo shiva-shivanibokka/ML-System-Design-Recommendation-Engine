@@ -98,12 +98,12 @@ export function Info({ k, className }: { k: GlossaryKey; className?: string }) {
               width: WIDTH,
               transform: pos.above ? "translateY(-100%)" : undefined,
             }}
-            className="z-[100] rounded-xl border border-line bg-white p-3.5 shadow-[0_12px_40px_-8px_rgba(40,24,90,0.35)]"
+            className="z-[100] rounded-xl border border-signal/40 bg-raised p-3.5 shadow-[0_12px_44px_-6px_rgba(139,92,246,0.45)]"
           >
             <span className="mb-1 block font-mono text-[11px] font-bold uppercase tracking-wide text-signal">
               {entry.term}
             </span>
-            <span className="block text-[12.5px] leading-relaxed text-foreground/85">
+            <span className="block text-[12.5px] leading-relaxed text-foreground/90">
               {entry.body}
             </span>
           </div>,

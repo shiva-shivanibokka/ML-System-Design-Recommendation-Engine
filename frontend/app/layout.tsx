@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/nav";
 
-const space = Space_Grotesk({
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
-  variable: "--font-space",
+  variable: "--font-bricolage",
+  display: "swap",
+});
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
   display: "swap",
 });
 const mono = JetBrains_Mono({
@@ -22,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`dark ${space.variable} ${mono.variable}`}>
+    <html lang="en" className={`dark ${bricolage.variable} ${manrope.variable} ${mono.variable}`}>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <div className="aurora" aria-hidden>
           <span className="b1" />

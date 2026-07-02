@@ -169,13 +169,13 @@ export default function RecommendPage() {
         <p className="font-mono text-xs font-semibold uppercase tracking-[0.28em] text-signal">
           Real-time serving
         </p>
-        <h1 className="mt-3 max-w-4xl font-display text-4xl font-extrabold leading-[1.03] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+        <h1 className="mt-3 font-display text-5xl font-extrabold leading-[0.98] tracking-tight text-foreground sm:text-7xl lg:text-[5.5rem]">
           What should this user{" "}
-          <span className="bg-gradient-to-r from-signal via-pink to-amber bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-signal via-pink to-cyan bg-clip-text text-transparent">
             watch next?
           </span>
         </h1>
-        <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+        <p className="mt-6 max-w-5xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
           Every request runs a five-stage pipeline —{" "}
           <span className="text-foreground">FAISS retrieval</span>
           <Info k="faiss" className="mx-0.5 align-middle" /> →{" "}

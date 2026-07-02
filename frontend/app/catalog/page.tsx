@@ -51,13 +51,13 @@ export default function CatalogPage() {
         <p className="font-mono text-xs font-semibold uppercase tracking-[0.28em] text-signal">
           The catalog, as the model sees it
         </p>
-        <h1 className="mt-3 max-w-4xl font-display text-4xl font-extrabold leading-[1.03] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+        <h1 className="mt-3 font-display text-5xl font-extrabold leading-[0.98] tracking-tight text-foreground sm:text-7xl lg:text-[5.5rem]">
           Every movie is a{" "}
-          <span className="bg-gradient-to-r from-signal via-pink to-live bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-cyan via-signal to-pink bg-clip-text text-transparent">
             point in space.
           </span>
         </h1>
-        <p className="mt-5 flex flex-wrap items-center gap-x-1.5 text-base leading-relaxed text-muted-foreground sm:text-lg">
+        <p className="mt-6 flex max-w-5xl flex-wrap items-center gap-x-1.5 text-lg leading-relaxed text-muted-foreground sm:text-xl">
           A 2D t-SNE projection <Info k="embedding" /> of all{" "}
           {map ? map.count.toLocaleString() : "3,533"} NeuMF item vectors. Nearby movies are ones the
           model treats as similar — retrieval literally searches this neighborhood.
@@ -116,8 +116,8 @@ export default function CatalogPage() {
                 className={cn(
                   "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-all",
                   on
-                    ? "border-line bg-white opacity-100"
-                    : "border-transparent bg-muted opacity-45"
+                    ? "border-line bg-raised opacity-100"
+                    : "border-transparent bg-muted opacity-40"
                 )}
                 style={on ? { borderColor: `${genreHue(g)}66` } : undefined}
               >
@@ -138,7 +138,7 @@ export default function CatalogPage() {
       </div>
 
       {/* Big galaxy */}
-      <div className="overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-white to-secondary p-2">
+      <div className="overflow-hidden rounded-2xl border border-line bg-[radial-gradient(circle_at_50%_35%,#1b1542,#0a0715)] p-2">
         <Galaxy points={map?.points ?? []} active={active} highlight={highlight} />
       </div>
 
@@ -249,15 +249,18 @@ function Galaxy({
 
     const shown = (g: string) => active.size === 0 || active.has(g);
 
+    // Additive blending makes the stars glow and dense regions brighten.
+    ctx.globalCompositeOperation = "lighter";
     for (const p of points) {
       const { sx, sy } = project(p);
       const on = shown(p.genre);
       ctx.beginPath();
-      ctx.arc(sx, sy, on ? 2.6 : 1.4, 0, Math.PI * 2);
+      ctx.arc(sx, sy, on ? 3 : 1.6, 0, Math.PI * 2);
       ctx.fillStyle = genreHue(p.genre);
-      ctx.globalAlpha = on ? 0.85 : 0.1;
+      ctx.globalAlpha = on ? 0.9 : 0.12;
       ctx.fill();
     }
+    ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
 
     if (highlight.size) {
@@ -265,9 +268,12 @@ function Galaxy({
         if (!highlight.has(p.item_id)) continue;
         const { sx, sy } = project(p);
         ctx.beginPath();
-        ctx.arc(sx, sy, 7, 0, Math.PI * 2);
-        ctx.fillStyle = "#6D4AFF";
+        ctx.arc(sx, sy, 7.5, 0, Math.PI * 2);
+        ctx.shadowBlur = 16;
+        ctx.shadowColor = "#8B5CF6";
+        ctx.fillStyle = "#C4B5FD";
         ctx.fill();
+        ctx.shadowBlur = 0;
         ctx.lineWidth = 2.5;
         ctx.strokeStyle = "#FFFFFF";
         ctx.stroke();
@@ -276,8 +282,8 @@ function Galaxy({
 
     if (hover) {
       ctx.beginPath();
-      ctx.arc(hover.sx, hover.sy, 8, 0, Math.PI * 2);
-      ctx.strokeStyle = "#211C39";
+      ctx.arc(hover.sx, hover.sy, 9, 0, Math.PI * 2);
+      ctx.strokeStyle = "#F4F1FF";
       ctx.lineWidth = 2;
       ctx.stroke();
     }
@@ -312,7 +318,7 @@ function Galaxy({
       />
       {hover && (
         <div
-          className="pointer-events-none absolute z-10 max-w-[220px] -translate-x-1/2 rounded-lg border border-line bg-white px-3 py-2 shadow-[0_10px_30px_-6px_rgba(40,24,90,0.3)]"
+          className="pointer-events-none absolute z-10 max-w-[220px] -translate-x-1/2 rounded-lg border border-signal/40 bg-raised px-3 py-2 shadow-[0_10px_30px_-6px_rgba(0,0,0,0.6)]"
           style={{
             left: Math.min(Math.max(hover.sx, 110), size.w - 110),
             top: hover.sy + 14,

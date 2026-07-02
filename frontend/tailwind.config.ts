@@ -10,8 +10,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-space)", "system-ui", "sans-serif"],
-        display: ["var(--font-space)", "system-ui", "sans-serif"],
+        sans: ["var(--font-manrope)", "system-ui", "sans-serif"],
+        display: ["var(--font-bricolage)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
       colors: {
@@ -44,26 +44,28 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Spectrum Daylight palette (light)
-        ink: "#ECE7F8", // soft fill for bar tracks / inputs on white
-        panel: "#FFFFFF", // card surface
-        raised: "#F5F2FC",
-        line: "#E7E1F4",
-        paper: "#211C39", // deep ink (text)
+        // Neon Cinema palette (dark + vivid)
+        ink: "#100A24", // deep fill for bar tracks / inputs on dark cards
+        panel: "#15112A", // card surface
+        raised: "#1E1838",
+        line: "#2C2550",
+        paper: "#F4F1FF", // near-white text
         signal: {
-          DEFAULT: "#6D4AFF", // violet primary
-          dim: "#5636E0",
-          soft: "rgba(109,74,255,0.12)",
+          DEFAULT: "#8B5CF6", // electric violet primary
+          dim: "#6D28D9",
+          soft: "rgba(139,92,246,0.16)",
         },
         live: {
-          DEFAULT: "#0FB5A5", // teal
-          soft: "rgba(15,181,165,0.13)",
+          DEFAULT: "#22D3EE", // cyan
+          soft: "rgba(34,211,238,0.15)",
         },
         alert: {
-          DEFAULT: "#FF4D5E", // coral
-          soft: "rgba(255,77,94,0.12)",
+          DEFAULT: "#FF5C6C", // coral
+          soft: "rgba(255,92,108,0.15)",
         },
-        pink: "#FF4D8D",
+        pink: "#FF4D9D",
+        cyan: "#22D3EE",
+        lime: "#A3E635",
         amber: "#FFB020",
       },
       borderRadius: {
