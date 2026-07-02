@@ -1,0 +1,4 @@
+# Shell scripts must always use LF, even on Windows checkouts, so the HF Space
+# (Linux) entrypoint doesn't break on a CRLF shebang.
+*.sh text eol=lf
+entrypoint.sh text eol=lf
