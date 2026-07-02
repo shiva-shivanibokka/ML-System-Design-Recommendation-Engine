@@ -33,7 +33,6 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import mlflow
 import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix
