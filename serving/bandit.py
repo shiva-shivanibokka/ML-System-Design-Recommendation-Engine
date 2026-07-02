@@ -62,6 +62,9 @@ class ThompsonSamplingBandit:
         }
         self.total_pulls: Dict[str, int] = {m: 0 for m in self.model_names}
         self.total_rewards: Dict[str, int] = {m: 0 for m in self.model_names}
+        # Tracks how many times each arm was *selected* (not just rewarded), so
+        # cold-start exploration can round-robin fairly before feedback arrives.
+        self._selection_counts: Dict[str, int] = {m: 0 for m in self.model_names}
         self._winner: Optional[str] = None
         self._winner_declared_at: Optional[float] = None
 
@@ -82,10 +85,18 @@ class ThompsonSamplingBandit:
         if self._winner:
             return self._winner
 
-        # Force exploration if any arm has too few samples
-        for model in self.model_names:
-            if self.total_pulls[model] < settings.bandit.min_samples_per_arm:
-                return model  # round-robin exploration for cold arms
+        # Force fair round-robin exploration while any arm is under-sampled:
+        # pick the least-selected under-threshold arm so consecutive selections
+        # rotate across arms even before feedback (pulls) comes back.
+        under = [
+            m
+            for m in self.model_names
+            if self.total_pulls[m] < settings.bandit.min_samples_per_arm
+        ]
+        if under:
+            chosen = min(under, key=lambda m: self._selection_counts[m])
+            self._selection_counts[chosen] += 1
+            return chosen
 
         # Thompson Sampling: sample from each Beta and take argmax
         samples = {
@@ -263,6 +274,7 @@ class ThompsonSamplingBandit:
         self.betas = {m: settings.bandit.initial_beta for m in self.model_names}
         self.total_pulls = {m: 0 for m in self.model_names}
         self.total_rewards = {m: 0 for m in self.model_names}
+        self._selection_counts = {m: 0 for m in self.model_names}
         self._winner = None
         self._winner_declared_at = None
         state_path = Path(settings.bandit.state_path)

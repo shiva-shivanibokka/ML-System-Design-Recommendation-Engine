@@ -165,18 +165,47 @@ def test_bandit_reset_endpoint(client):
 
 
 def test_recommend_cold_user_is_cold_start(client):
-    # user_id=2 has interaction_count=3, below threshold of 5 → cold start
+    # user_id=2 has interaction_count=3, below threshold of 5 → cold start,
+    # so it serves via the popularity fallback (no trained models needed).
     r = client.post("/recommend", json={"user_id": 2, "top_n": 3})
-    assert r.status_code in (200, 500)
-    if r.status_code == 200:
-        data = r.json()
-        assert "recommendations" in data
-        assert data["is_cold_start"] is True
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["is_cold_start"] is True
+    recs = data["recommendations"]
+    assert isinstance(recs, list) and len(recs) > 0
+    for rec in recs:
+        assert {"item_id", "title", "genre", "score"} <= set(rec)
 
 
 def test_recommend_response_schema(client):
     r = client.post("/recommend", json={"user_id": 2, "top_n": 3})
-    if r.status_code == 200:
-        data = r.json()
-        for key in ["request_id", "user_id", "model_used", "is_cold_start", "recommendations", "latency_ms"]:
-            assert key in data
+    assert r.status_code == 200, r.text
+    data = r.json()
+    for key in [
+        "request_id",
+        "user_id",
+        "model_used",
+        "is_cold_start",
+        "recommendations",
+        "latency_ms",
+    ]:
+        assert key in data
+
+
+def test_feedback_click_updates_bandit(client):
+    # A valid click should reward the serving model's bandit arm (+1 pull, +1 reward).
+    before = client.get("/bandit/state").json()
+    payload = {
+        "request_id": "test-req",
+        "user_id": 1,
+        "item_id": 10,
+        "model_used": "svd",
+        "rank_shown": 1,
+    }
+    r = client.post("/feedback/click", json=payload)
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "ok"
+
+    after = client.get("/bandit/state").json()
+    assert after["total_rewards"]["svd"] == before["total_rewards"]["svd"] + 1
+    assert after["total_pulls"]["svd"] == before["total_pulls"]["svd"] + 1

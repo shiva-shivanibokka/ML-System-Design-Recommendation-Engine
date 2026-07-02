@@ -17,9 +17,10 @@ def test_select_arm_returns_valid_model(bandit):
 
 def test_forced_exploration_when_cold():
     b = ThompsonSamplingBandit(model_names=["svd", "ncf"])
-    # total_pulls starts at 0; min_samples_per_arm=50 forces round-robin
+    # total_pulls starts at 0 (< min_samples_per_arm), so selection must
+    # round-robin fairly across BOTH arms, not repeatedly return the same one.
     arms_seen = {b.select_arm() for _ in range(20)}
-    assert "svd" in arms_seen or "ncf" in arms_seen
+    assert arms_seen == {"svd", "ncf"}
 
 
 def test_update_click_increments_alpha(bandit):
