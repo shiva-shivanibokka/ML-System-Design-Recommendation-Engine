@@ -60,3 +60,14 @@ def test_postgres_port_default():
     from configs.settings import _load_settings
     s = _load_settings()
     assert s.postgres.port == 5432
+
+
+def test_redis_url_parsed_into_parts():
+    url = "rediss://default:secretpw@fly-abc.upstash.io:6379"
+    with patch.dict(os.environ, {"REDIS_URL": url}):
+        from configs.settings import _load_settings
+        s = _load_settings()
+        assert s.redis.host == "fly-abc.upstash.io"
+        assert s.redis.port == 6379
+        assert s.redis.password == "secretpw"
+        assert s.redis.ssl is True

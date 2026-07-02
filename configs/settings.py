@@ -95,6 +95,8 @@ class RedisConfig:
     port: int
     recommendation_ttl_seconds: int
     feature_ttl_seconds: int
+    password: str = ""
+    ssl: bool = False
 
 
 @dataclass
@@ -220,6 +222,19 @@ def _load_settings() -> Settings:
     )
 
     raw["redis"]["host"] = os.getenv("REDIS_HOST", raw["redis"]["host"])
+    # A single REDIS_URL (e.g. Upstash rediss://:pw@host:port) overrides the parts.
+    _redis_url = os.getenv("REDIS_URL")
+    if _redis_url:
+        from urllib.parse import urlparse
+
+        _p = urlparse(_redis_url)
+        if _p.hostname:
+            raw["redis"]["host"] = _p.hostname
+        if _p.port:
+            raw["redis"]["port"] = _p.port
+        if _p.password:
+            raw["redis"]["password"] = _p.password
+        raw["redis"]["ssl"] = _redis_url.startswith("rediss://")
     raw["kafka"]["bootstrap_servers"] = os.getenv(
         "KAFKA_BOOTSTRAP_SERVERS", raw["kafka"]["bootstrap_servers"]
     )
