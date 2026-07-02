@@ -2,11 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, type BanditState } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { RefreshCw, Trophy, Loader2, AlertCircle } from "lucide-react";
+import { Info } from "@/components/info";
+import { cn } from "@/lib/utils";
 import {
   LineChart,
   Line,
@@ -14,13 +11,10 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
+  CartesianGrid,
 } from "recharts";
 
-// --- Beta distribution PDF (Lanczos approximation) ---
+// Beta(α, β) PDF via a Lanczos log-gamma, so we can draw the belief curves.
 function lgamma(x: number): number {
   if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * x)) - lgamma(1 - x);
   x -= 1;
@@ -34,44 +28,28 @@ function lgamma(x: number): number {
   for (let i = 1; i < 9; i++) a += c[i] / (x + i);
   return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
 }
-
 function betaPDF(x: number, alpha: number, beta: number): number {
   if (x <= 0 || x >= 1) return 0;
-  const logPDF = (alpha - 1) * Math.log(x) + (beta - 1) * Math.log(1 - x) - (lgamma(alpha) + lgamma(beta) - lgamma(alpha + beta));
-  return Math.exp(logPDF);
+  const lp =
+    (alpha - 1) * Math.log(x) +
+    (beta - 1) * Math.log(1 - x) -
+    (lgamma(alpha) + lgamma(beta) - lgamma(alpha + beta));
+  return Math.exp(lp);
 }
 
-function buildBetaChartData(models: string[], alphas: Record<string, number>, betas: Record<string, number>) {
-  const points = 200;
-  return Array.from({ length: points }, (_, i) => {
-    const x = (i + 1) / (points + 1);
-    const entry: Record<string, number> = { x };
-    for (const m of models) {
-      entry[m] = betaPDF(x, alphas[m] ?? 1, betas[m] ?? 1);
-    }
-    return entry;
-  });
-}
-
-const MODEL_COLORS: Record<string, string> = {
-  svd: "#8b5cf6",
-  ncf: "#06b6d4",
-};
-
-function colorFor(model: string, i: number) {
-  return MODEL_COLORS[model] ?? ["#f59e0b", "#10b981"][i % 2];
-}
+const MODEL_COLORS: Record<string, string> = { svd: "#E7A33A", ncf: "#37C4A4" };
+const modelColor = (m: string) => MODEL_COLORS[m] ?? "#8A8A8A";
 
 export default function BanditPage() {
   const [state, setState] = useState<BanditState | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [resetting, setResetting] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
       setState(await api.banditState());
+      setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load bandit state");
     } finally {
@@ -79,172 +57,224 @@ export default function BanditPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 4000); // live poll while watching
+    return () => clearInterval(t);
+  }, [load]);
+
+  async function reset() {
+    setResetting(true);
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/admin/bandit/reset`, {
+        method: "POST",
+      });
+      await load();
+    } catch {
+      /* ignore */
+    } finally {
+      setResetting(false);
+    }
+  }
 
   const models = state ? Object.keys(state.alphas) : [];
-  const betaData = state ? buildBetaChartData(models, state.alphas, state.betas) : [];
-  const trafficData = state
-    ? Object.entries(state.traffic_split).map(([name, value]) => ({ name: name.toUpperCase(), value: Math.round(value * 100) }))
-    : [];
+  const chartData =
+    state &&
+    Array.from({ length: 160 }, (_, i) => {
+      const x = (i + 1) / 161;
+      const row: Record<string, number> = { x };
+      for (const m of models) row[m] = betaPDF(x, state.alphas[m] ?? 1, state.betas[m] ?? 1);
+      return row;
+    });
 
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-start justify-between">
+    <div className="space-y-6">
+      <section className="flex items-end justify-between pt-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Bandit A/B Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Thompson Sampling multi-armed bandit — auto-converges traffic to the winning model arm
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-signal">
+            Online experimentation
+          </p>
+          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-foreground">
+            Which model wins? Let traffic decide.
+          </h1>
+          <p className="mt-2 max-w-2xl text-[15px] text-muted-foreground">
+            A Thompson-Sampling bandit
+            <Info k="bandit" className="mx-0.5 align-middle" /> holds a belief about each model&apos;s
+            click rate and routes each request to whichever looks best right now. Click titles on the
+            Recommend page and watch these beliefs sharpen.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh
-        </Button>
-      </div>
+        <button
+          onClick={reset}
+          disabled={resetting}
+          className="rounded-md border border-line px-3 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:border-alert/50 hover:text-alert"
+        >
+          {resetting ? "…" : "↺ reset"}
+        </button>
+      </section>
 
       {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="rounded-lg border border-alert/40 bg-alert-soft px-4 py-3 text-sm text-alert">
+          {error.includes("503") || error.toLowerCase().includes("fetch")
+            ? "The API is waking from sleep (free tier). Give it ~30s."
+            : error}
+        </div>
       )}
 
       {state && (
         <>
-          {/* Stat row */}
-          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Card>
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Winner</p>
-                  <Trophy className="h-4 w-4 text-amber-400" />
-                </div>
-                <p className="mt-2 text-2xl font-bold">
-                  {state.winner ? (
-                    <span className="text-amber-400">{state.winner.toUpperCase()}</span>
-                  ) : (
-                    <span className="text-muted-foreground text-xl">Exploring…</span>
-                  )}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">95% confidence threshold</p>
-              </CardContent>
-            </Card>
-
-            {models.map((m, i) => (
-              <Card key={m}>
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{m.toUpperCase()}</p>
-                    <div className="h-2 w-2 rounded-full" style={{ background: colorFor(m, i) }} />
-                  </div>
-                  <p className="mt-2 text-2xl font-bold font-mono" style={{ color: colorFor(m, i) }}>
-                    {((state.ctrs[m] ?? 0) * 100).toFixed(2)}%
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {state.total_pulls[m] ?? 0} pulls · α={state.alphas[m]?.toFixed(1)} β={state.betas[m]?.toFixed(1)}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+          {/* Winner / status */}
+          <div
+            className={cn(
+              "rounded-xl border px-4 py-3",
+              state.winner ? "border-signal/40 bg-signal-soft" : "border-line bg-panel/60"
+            )}
+          >
+            {state.winner ? (
+              <p className="text-sm">
+                <span className="font-mono font-semibold uppercase text-signal">
+                  🏆 {state.winner} declared winner
+                </span>
+                <span className="text-muted-foreground"> — 95% credible the better model.</span>
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                <span className="font-mono uppercase text-foreground">exploring</span> — not enough
+                evidence yet to declare a winner. Beliefs update as clicks arrive.
+              </p>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-            {/* Beta distribution chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Beta Distributions — P(θ) per arm</CardTitle>
-                <CardDescription className="text-xs">
-                  Higher α concentrates mass toward higher θ (CTR). Traffic routes to the arm with the higher sampled θ.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={280}>
-                  <LineChart data={betaData} margin={{ left: -10, right: 10 }}>
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.5fr_1fr]">
+            {/* Belief curves */}
+            <div className="rounded-xl border border-line bg-panel p-5">
+              <div className="mb-1 flex items-center gap-1.5">
+                <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Belief curves · Beta(α, β)
+                </h2>
+                <Info k="alphabeta" />
+              </div>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Taller, narrower = more confident. The curves start identical and separate as
+                evidence accumulates.
+              </p>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData ?? []} margin={{ top: 8, right: 8, bottom: 4, left: -18 }}>
+                    <CartesianGrid stroke="#332A20" strokeDasharray="2 4" vertical={false} />
                     <XAxis
                       dataKey="x"
                       type="number"
                       domain={[0, 1]}
-                      tickFormatter={(v: number) => v.toFixed(1)}
-                      tick={{ fontSize: 11, fill: "hsl(215 16% 57%)" }}
-                      label={{ value: "θ (estimated CTR)", position: "insideBottom", offset: -2, fontSize: 11, fill: "hsl(215 16% 57%)" }}
+                      tick={{ fontSize: 10, fill: "#8A8A8A", fontFamily: "monospace" }}
+                      tickFormatter={(v) => v.toFixed(1)}
+                      stroke="#332A20"
                     />
-                    <YAxis tick={{ fontSize: 11, fill: "hsl(215 16% 57%)" }} width={30} />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: "#8A8A8A", fontFamily: "monospace" }}
+                      stroke="#332A20"
+                    />
                     <Tooltip
-                      formatter={(v: number, name: string) => [v.toFixed(3), name.toUpperCase()]}
-                      labelFormatter={(v: number) => `θ = ${v.toFixed(3)}`}
-                      contentStyle={{ background: "hsl(224 71% 6%)", border: "1px solid hsl(216 34% 17%)", borderRadius: 6, fontSize: 12 }}
+                      contentStyle={{
+                        background: "#16120E",
+                        border: "1px solid #332A20",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontFamily: "monospace",
+                      }}
+                      labelFormatter={(v) => `p(click) = ${Number(v).toFixed(2)}`}
+                      formatter={(val: number, name: string) => [val.toFixed(2), name.toUpperCase()]}
                     />
-                    <Legend formatter={(v: string) => v.toUpperCase()} wrapperStyle={{ fontSize: 12 }} />
-                    {models.map((m, i) => (
+                    {models.map((m) => (
                       <Line
                         key={m}
                         type="monotone"
                         dataKey={m}
-                        dot={false}
+                        stroke={modelColor(m)}
                         strokeWidth={2}
-                        stroke={colorFor(m, i)}
+                        dot={false}
+                        isAnimationActive={false}
                       />
                     ))}
                   </LineChart>
                 </ResponsiveContainer>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <div className="space-y-6">
-              {/* Traffic split pie */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Traffic Split</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <PieChart>
-                      <Pie data={trafficData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={3}>
-                        {trafficData.map((entry, i) => (
-                          <Cell key={entry.name} fill={colorFor(models[i], i)} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(v: number) => [`${v}%`]} contentStyle={{ background: "hsl(224 71% 6%)", border: "1px solid hsl(216 34% 17%)", borderRadius: 6, fontSize: 12 }} />
-                      <Legend formatter={(v: string) => v} wrapperStyle={{ fontSize: 12 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Stats table */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Model Stats</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="px-4 py-2 text-left text-muted-foreground font-medium">Model</th>
-                        <th className="px-4 py-2 text-right text-muted-foreground font-medium">Pulls</th>
-                        <th className="px-4 py-2 text-right text-muted-foreground font-medium">Bayesian CTR</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {models.map((m, i) => (
-                        <tr key={m} className="border-b border-border last:border-0">
-                          <td className="px-4 py-2.5 font-medium" style={{ color: colorFor(m, i) }}>
-                            {m.toUpperCase()}
-                            {state.winner === m && <Badge className="ml-2 border-amber-500/30 bg-amber-500/20 text-amber-400 text-xs py-0">winner</Badge>}
-                          </td>
-                          <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{state.total_pulls[m] ?? 0}</td>
-                          <td className="px-4 py-2.5 text-right font-mono" style={{ color: colorFor(m, i) }}>
-                            {((state.mean_ctrs[m] ?? 0) * 100).toFixed(2)}%
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </CardContent>
-              </Card>
+            {/* Traffic split */}
+            <div className="rounded-xl border border-line bg-panel p-5">
+              <div className="mb-4 flex items-center gap-1.5">
+                <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Traffic split
+                </h2>
+                <Info k="trafficsplit" />
+              </div>
+              <div className="space-y-4">
+                {models.map((m) => {
+                  const pct = (state.traffic_split?.[m] ?? 0) * 100;
+                  return (
+                    <div key={m}>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-2 font-mono uppercase">
+                          <span className="h-2.5 w-2.5 rounded-sm" style={{ background: modelColor(m) }} />
+                          {m}
+                        </span>
+                        <span className="font-mono font-semibold text-foreground">{pct.toFixed(0)}%</span>
+                      </div>
+                      <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-ink">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%`, background: modelColor(m) }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-4 text-xs text-muted-foreground">
+                Shifts automatically — no fixed 50/50. Winning models earn more traffic.
+              </p>
             </div>
           </div>
+
+          {/* Per-model stat cards */}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            {models.map((m) => (
+              <div key={m} className="rounded-xl border border-line bg-panel p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="flex items-center gap-2 font-display text-lg font-bold">
+                    <span className="h-3 w-3 rounded-sm" style={{ background: modelColor(m) }} />
+                    {m.toUpperCase()}
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {m === "ncf" ? "neural CF" : "matrix factorization"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    ["α wins", (state.alphas[m] ?? 0).toFixed(0)],
+                    ["β losses", (state.betas[m] ?? 0).toFixed(0)],
+                    ["pulls", (state.total_pulls[m] ?? 0).toString()],
+                    ["est. CTR", `${((state.mean_ctrs[m] ?? 0) * 100).toFixed(1)}%`],
+                    ["rewards", (state.total_rewards[m] ?? 0).toString()],
+                    ["± uncert.", (state.uncertainty?.[m] ?? 0).toFixed(3)],
+                  ].map(([label, val]) => (
+                    <div key={label} className="rounded-lg border border-line bg-ink/50 p-2.5">
+                      <p className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {label}
+                      </p>
+                      <p className="mt-0.5 font-mono text-lg font-semibold text-foreground">{val}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </>
+      )}
+
+      {loading && !state && (
+        <div className="h-64 animate-pulse rounded-xl border border-line bg-panel" />
       )}
     </div>
   );

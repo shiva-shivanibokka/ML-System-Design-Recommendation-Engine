@@ -1,122 +1,141 @@
 "use client";
 
 import { useState } from "react";
-import { api, type RecommendResponse, type Recommendation } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Zap, Loader2, TrendingUp, Clock, AlertCircle, MousePointerClick } from "lucide-react";
+import {
+  api,
+  reasonFor,
+  genreHue,
+  type RecommendResponse,
+  type Recommendation,
+} from "@/lib/api";
+import { Info } from "@/components/info";
+import { Pipeline } from "@/components/pipeline";
 import { cn } from "@/lib/utils";
 
-const GENRE_COLORS: Record<string, string> = {
-  Action: "bg-red-500/20 text-red-400 border-red-500/30",
-  Comedy: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  Drama: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  Romance: "bg-pink-500/20 text-pink-400 border-pink-500/30",
-  Thriller: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  "Sci-Fi": "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
-  Horror: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  Animation: "bg-green-500/20 text-green-400 border-green-500/30",
-  Adventure: "bg-teal-500/20 text-teal-400 border-teal-500/30",
-  Fantasy: "bg-violet-500/20 text-violet-400 border-violet-500/30",
-  Documentary: "bg-slate-500/20 text-slate-400 border-slate-500/30",
-  Crime: "bg-rose-500/20 text-rose-400 border-rose-500/30",
-  Musical: "bg-lime-500/20 text-lime-400 border-lime-500/30",
-  War: "bg-stone-500/20 text-stone-400 border-stone-500/30",
-  Western: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-};
-
-function genreClass(genre: string) {
-  return GENRE_COLORS[genre] ?? "bg-slate-500/20 text-slate-400 border-slate-500/30";
-}
-
 const MODELS = [
-  { value: "auto", label: "Auto (Bandit)" },
-  { value: "ncf", label: "NeuMF" },
-  { value: "svd", label: "SVD" },
+  { value: "auto", label: "Auto", info: "bandit" as const },
+  { value: "ncf", label: "NeuMF", info: "neumf" as const },
+  { value: "svd", label: "SVD", info: "svd" as const },
 ];
 
-function RecommendationCard({
+const SAMPLE_USERS = [1, 42, 314, 1729, 4040];
+
+function RecCard({
   rec,
-  onClickFeedback,
+  rank,
+  modelUsed,
+  isCold,
   clicked,
+  onClick,
 }: {
   rec: Recommendation;
-  onClickFeedback: () => void;
+  rank: number;
+  modelUsed: string;
+  isCold: boolean;
   clicked: boolean;
+  onClick: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const hue = genreHue(rec.genre);
+
   return (
-    <Card className="group relative overflow-hidden transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-              {rec.rank}
+    <div
+      className="animate-fade-up group relative overflow-hidden rounded-xl border border-line bg-panel transition-colors hover:border-signal/40"
+      style={{ animationDelay: `${Math.min(rank * 30, 300)}ms` }}
+    >
+      {/* rank ribbon */}
+      <div
+        className="absolute left-0 top-0 h-full w-[3px]"
+        style={{ background: hue }}
+      />
+      <div className="p-4 pl-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="font-mono text-lg font-bold tabular-nums text-muted-foreground">
+              {String(rank).padStart(2, "0")}
             </span>
-            {rec.is_fresh && (
-              <Badge className="gap-1 border-amber-500/30 bg-amber-500/20 text-amber-400 text-xs">
-                <TrendingUp className="h-3 w-3" />
-                Trending
-              </Badge>
-            )}
+            <h3 className="text-[15px] font-semibold leading-tight text-foreground">
+              {rec.title}
+            </h3>
           </div>
-          <span className="text-xs font-mono text-muted-foreground">{rec.score.toFixed(4)}</span>
-        </div>
-
-        <h3 className="mt-3 font-semibold text-foreground leading-tight line-clamp-2">{rec.title}</h3>
-
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {rec.genre.split("|").map((g) => (
-            <span
-              key={g}
-              className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium", genreClass(g.trim()))}
-            >
-              {g.trim()}
+          {rec.is_fresh && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full border border-signal/30 bg-signal-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-signal">
+              trending
             </span>
-          ))}
-        </div>
-
-        <div className="mt-3">
-          <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
-            <div
-              className="h-full rounded-full bg-primary/60 transition-all"
-              style={{ width: `${Math.min(rec.score * 100, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        <Button
-          size="sm"
-          variant={clicked ? "secondary" : "ghost"}
-          className={cn(
-            "mt-3 w-full gap-1.5 text-xs",
-            clicked ? "text-emerald-400" : "text-muted-foreground hover:text-foreground"
           )}
-          onClick={onClickFeedback}
-          disabled={clicked}
-        >
-          <MousePointerClick className="h-3 w-3" />
-          {clicked ? "Feedback registered" : "Register click"}
-        </Button>
-      </CardContent>
-    </Card>
+        </div>
+
+        <div className="mt-2.5 flex items-center gap-2">
+          <span
+            className="rounded-md px-2 py-0.5 text-[11px] font-medium"
+            style={{ background: `${hue}22`, color: hue }}
+          >
+            {rec.genre.split("|")[0].trim()}
+          </span>
+          <div className="flex-1" />
+          <span className="font-mono text-[11px] text-muted-foreground">score</span>
+          <span className="font-mono text-[13px] font-semibold text-foreground">
+            {rec.score.toFixed(3)}
+          </span>
+        </div>
+
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-ink">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${Math.min(rec.score * 100, 100)}%`, background: hue }}
+          />
+        </div>
+
+        {/* why + click */}
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className={cn(
+              "rounded-md border px-2 py-1 font-mono text-[11px] transition-colors",
+              open
+                ? "border-signal/40 bg-signal/10 text-signal"
+                : "border-line text-muted-foreground hover:text-foreground"
+            )}
+          >
+            why?
+          </button>
+          <button
+            type="button"
+            onClick={onClick}
+            disabled={clicked}
+            className={cn(
+              "ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors",
+              clicked
+                ? "cursor-default text-live"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            {clicked ? "✓ click logged" : "Register click"}
+          </button>
+        </div>
+
+        {open && (
+          <p className="animate-fade-up mt-2.5 border-t border-line pt-2.5 text-[12.5px] leading-relaxed text-foreground/80">
+            {reasonFor(rec, modelUsed, isCold)}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
-export default function RecommendationsPage() {
-  const [userId, setUserId] = useState<string>("1");
-  const [topN, setTopN] = useState(10);
+export default function RecommendPage() {
+  const [userId, setUserId] = useState("1");
+  const [topN, setTopN] = useState(12);
   const [model, setModel] = useState("auto");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<RecommendResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Set<number>>(new Set());
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function run(e?: React.FormEvent) {
+    e?.preventDefault();
     const id = parseInt(userId);
     if (isNaN(id) || id < 1) return;
     setLoading(true);
@@ -133,181 +152,196 @@ export default function RecommendationsPage() {
     }
   }
 
-  async function handleClick(rec: Recommendation) {
+  async function handleClick(rec: Recommendation, rank: number) {
     if (!result || clicked.has(rec.item_id)) return;
     setClicked((s) => new Set([...s, rec.item_id]));
     try {
-      await api.click(result.request_id, result.user_id, rec.item_id, result.model_used, rec.rank);
+      await api.click(result.request_id, result.user_id, rec.item_id, result.model_used, rank);
     } catch {
-      // feedback best-effort
+      /* best-effort */
     }
   }
 
-  const stageLabels: Record<string, string> = {
-    cache_check: "Cache",
-    candidate_generation: "Retrieval",
-    feature_fetch: "Features",
-    ranking: "Ranking",
-    post_ranking: "Post-rank",
-    total: "Total",
-  };
-
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">Recommendations</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Two-stage FAISS retrieval → NeuMF / SVD ranking → MMR diversity
+    <div className="space-y-6">
+      {/* Hero */}
+      <section className="pt-2">
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-signal">
+          Real-time serving
         </p>
-      </div>
+        <h1 className="mt-2 max-w-3xl font-display text-3xl font-bold leading-[1.1] tracking-tight text-foreground sm:text-4xl">
+          Ask the engine what a user should watch next.
+        </h1>
+        <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
+          Every request runs a five-stage pipeline —{" "}
+          <span className="text-foreground">FAISS retrieval</span>
+          <Info k="faiss" className="mx-0.5 align-middle" /> →{" "}
+          <span className="text-foreground">bandit-chosen ranking</span>
+          <Info k="bandit" className="mx-0.5 align-middle" /> →{" "}
+          <span className="text-foreground">MMR re-ranking</span>
+          <Info k="mmr" className="mx-0.5 align-middle" /> — targeting a p99 under 100ms.
+        </p>
+      </section>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[320px_1fr]">
-        {/* Controls */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-medium">Query Parameters</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">User ID (1 – 6040)</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={6040}
-                    value={userId}
-                    onChange={(e) => setUserId(e.target.value)}
-                    placeholder="e.g. 42"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-medium text-muted-foreground">Top N</label>
-                    <span className="text-xs font-mono text-primary">{topN}</span>
-                  </div>
-                  <Slider min={5} max={20} step={1} value={[topN]} onValueChange={([v]) => setTopN(v)} />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Model</label>
-                  <div className="flex gap-1.5">
-                    {MODELS.map((m) => (
-                      <button
-                        key={m.value}
-                        type="button"
-                        onClick={() => setModel(m.value)}
-                        className={cn(
-                          "flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors",
-                          model === m.value
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                        )}
-                      >
-                        {m.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <Button type="submit" className="w-full gap-2" disabled={loading}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-                  {loading ? "Fetching…" : "Get Recommendations"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          {result && (
-            <Card>
-              <CardContent className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Model used</span>
-                  <Badge variant="outline" className="font-mono text-xs">{result.model_used.toUpperCase()}</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Cold start</span>
-                  <Badge variant={result.is_cold_start ? "warning" : "success"}>
-                    {result.is_cold_start ? "Yes" : "No"}
-                  </Badge>
-                </div>
-                <div className="pt-1 space-y-1.5">
-                  {Object.entries(result.latency_ms)
-                    .filter(([k]) => k in stageLabels)
-                    .map(([k, v]) => (
-                      <div key={k} className="flex items-center gap-2">
-                        <span className="w-20 text-xs text-muted-foreground flex-shrink-0">{stageLabels[k]}</span>
-                        <div className="flex-1 h-1 rounded-full bg-secondary overflow-hidden">
-                          <div
-                            className={cn("h-full rounded-full", k === "total" ? "bg-primary" : "bg-primary/40")}
-                            style={{ width: `${Math.min((v / (result.latency_ms.total || 100)) * 100, 100)}%` }}
-                          />
-                        </div>
-                        <span className="w-14 text-right text-xs font-mono text-muted-foreground">{v.toFixed(1)}ms</span>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Results */}
-        <div>
-          {error && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {!result && !loading && !error && (
-            <div className="flex h-80 items-center justify-center rounded-xl border border-dashed border-border">
-              <div className="text-center">
-                <Zap className="mx-auto h-8 w-8 text-muted-foreground/40" />
-                <p className="mt-3 text-sm text-muted-foreground">Enter a user ID and click Get Recommendations</p>
-              </div>
+      {/* Query bar */}
+      <form
+        onSubmit={run}
+        className="rounded-xl border border-line bg-panel p-4 sm:p-5"
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+          {/* user id */}
+          <div className="lg:w-52">
+            <label className="mb-1.5 block font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+              User ID · 1–6040
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={6040}
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              className="h-10 w-full rounded-md border border-line bg-ink px-3 font-mono text-sm text-foreground outline-none transition-colors focus:border-signal/60"
+            />
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {SAMPLE_USERS.map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setUserId(String(u))}
+                  className="rounded border border-line px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-signal/40 hover:text-signal"
+                >
+                  {u}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
-          {loading && (
-            <div className="flex h-80 items-center justify-center">
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="text-sm">Running 5-stage pipeline…</span>
-              </div>
+          {/* top N */}
+          <div className="lg:w-48">
+            <label className="mb-1.5 flex items-center justify-between font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+              <span>Top N</span>
+              <span className="text-signal">{topN}</span>
+            </label>
+            <input
+              type="range"
+              min={5}
+              max={20}
+              step={1}
+              value={topN}
+              onChange={(e) => setTopN(parseInt(e.target.value))}
+              className="h-10 w-full accent-signal"
+            />
+          </div>
+
+          {/* model */}
+          <div className="flex-1">
+            <label className="mb-1.5 flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+              Model <Info k="bandit" />
+            </label>
+            <div className="flex gap-1.5">
+              {MODELS.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setModel(m.value)}
+                  className={cn(
+                    "flex h-10 flex-1 items-center justify-center gap-1 rounded-md border text-[13px] font-medium transition-colors",
+                    model === m.value
+                      ? "border-signal/60 bg-signal/12 text-signal"
+                      : "border-line text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {m.label}
+                  {model === m.value && <Info k={m.info} />}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
-          {result && !loading && (
-            <>
-              <div className="mb-4 flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">{result.recommendations.length}</span> recommendations
-                  for user <span className="font-medium text-foreground">{result.user_id}</span>
-                  {" · "}
-                  <span className="font-mono text-primary">{result.latency_ms.total?.toFixed(0)}ms</span>
-                </p>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  p99 budget: 100ms
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {result.recommendations.map((rec) => (
-                  <RecommendationCard
-                    key={rec.item_id}
-                    rec={rec}
-                    onClickFeedback={() => handleClick(rec)}
-                    clicked={clicked.has(rec.item_id)}
-                  />
-                ))}
-              </div>
-            </>
-          )}
+          {/* run */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex h-10 items-center justify-center gap-2 rounded-md bg-signal px-6 font-display text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60 lg:w-40"
+          >
+            {loading ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/40 border-t-primary-foreground" />
+            ) : (
+              "Run pipeline ▸"
+            )}
+          </button>
         </div>
-      </div>
+      </form>
+
+      {/* Pipeline viz */}
+      <Pipeline latency={result?.latency_ms} active={loading} />
+
+      {error && (
+        <div className="rounded-lg border border-alert/40 bg-alert-soft px-4 py-3 text-sm text-alert">
+          {error.includes("503") || error.toLowerCase().includes("fetch")
+            ? "The API is waking from sleep (free tier). Give it ~30s and run again."
+            : error}
+        </div>
+      )}
+
+      {/* Result meta */}
+      {result && !loading && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-line bg-panel/50 px-4 py-3 text-sm">
+          <span className="text-muted-foreground">
+            <span className="font-semibold text-foreground">{result.recommendations.length}</span> picks
+            for user <span className="font-semibold text-foreground">{result.user_id}</span>
+          </span>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            served by
+            <span className="rounded bg-signal/12 px-1.5 py-0.5 font-mono text-xs font-semibold uppercase text-signal">
+              {result.model_used}
+            </span>
+            <Info k={result.model_used === "ncf" ? "neumf" : "svd"} />
+          </span>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            cold start
+            <span
+              className={cn(
+                "rounded px-1.5 py-0.5 font-mono text-xs font-semibold",
+                result.is_cold_start ? "bg-signal-soft text-signal" : "bg-live-soft text-live"
+              )}
+            >
+              {result.is_cold_start ? "YES" : "NO"}
+            </span>
+            <Info k="coldstart" />
+          </span>
+          <span className="ml-auto flex items-center gap-1.5 text-muted-foreground">
+            <span className="font-mono text-xs">click a title to teach the bandit</span>
+            <Info k="registerclick" />
+          </span>
+        </div>
+      )}
+
+      {/* Results grid */}
+      {!result && !loading && !error && (
+        <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-line text-center">
+          <p className="font-display text-lg text-foreground">Pick a user, run the pipeline.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Try one of the sample IDs above, or type any user from 1–6040.
+          </p>
+        </div>
+      )}
+
+      {result && !loading && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {result.recommendations.map((rec, i) => (
+            <RecCard
+              key={rec.item_id}
+              rec={rec}
+              rank={i + 1}
+              modelUsed={result.model_used}
+              isCold={result.is_cold_start}
+              clicked={clicked.has(rec.item_id)}
+              onClick={() => handleClick(rec, i + 1)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

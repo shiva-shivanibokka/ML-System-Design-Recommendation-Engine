@@ -1,46 +1,99 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { BarChart3, Activity, Cpu, Zap } from "lucide-react";
+import { api, type SystemHealth } from "@/lib/api";
 
 const links = [
-  { href: "/", label: "Recommendations", icon: Zap },
-  { href: "/bandit", label: "Bandit A/B", icon: BarChart3 },
-  { href: "/monitoring", label: "Monitoring", icon: Activity },
+  { href: "/", label: "Recommend" },
+  { href: "/bandit", label: "Bandit A/B" },
+  { href: "/monitoring", label: "Monitoring" },
+  { href: "/catalog", label: "Catalog" },
 ];
 
 export function Nav() {
   const path = usePathname();
+  const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [down, setDown] = useState(false);
+
+  useEffect(() => {
+    api.health().then(setHealth).catch(() => setDown(true));
+  }, []);
+
+  const live = !!health && health.status === "ok";
+
   return (
-    <aside className="fixed inset-y-0 left-0 z-10 flex w-60 flex-col border-r border-border bg-background">
-      <div className="flex h-16 items-center gap-2 border-b border-border px-6">
-        <Cpu className="h-5 w-5 text-primary" />
-        <span className="font-semibold text-sm tracking-tight">RecSys Engine</span>
-      </div>
+    <header className="sticky top-0 z-40 border-b border-line bg-ink/85 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-6 px-5 sm:px-8">
+        {/* Wordmark */}
+        <Link href="/" className="group flex items-center gap-2.5">
+          <span className="relative flex h-2.5 w-2.5">
+            <span
+              className={cn(
+                "absolute inline-flex h-full w-full rounded-full",
+                live ? "animate-ping bg-live/60" : "bg-transparent"
+              )}
+            />
+            <span
+              className={cn(
+                "relative inline-flex h-2.5 w-2.5 rounded-full",
+                live ? "bg-live" : down ? "bg-alert" : "bg-signal"
+              )}
+            />
+          </span>
+          <span className="font-display text-[15px] font-bold tracking-tight text-foreground">
+            RECSYS
+            <span className="text-signal">.</span>
+          </span>
+          <span className="hidden font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground sm:inline">
+            engine
+          </span>
+        </Link>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {links.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-              path === href
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+        {/* Nav */}
+        <nav className="flex items-center gap-1">
+          {links.map(({ href, label }) => {
+            const activeLink = href === "/" ? path === "/" : path.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors sm:px-3",
+                  activeLink
+                    ? "bg-signal/12 text-signal"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Live status */}
+        <div className="ml-auto flex items-center gap-3">
+          <div className="hidden items-center gap-2 font-mono text-[11px] md:flex">
+            {live ? (
+              <>
+                <span className="flex items-center gap-1.5 text-live">
+                  <span className="h-1.5 w-1.5 rounded-full bg-live" /> LIVE
+                </span>
+                <span className="text-line">/</span>
+                <span className="text-muted-foreground">
+                  {(health?.n_total_items ?? 0).toLocaleString()} items
+                </span>
+              </>
+            ) : down ? (
+              <span className="text-alert">API waking… retry shortly</span>
+            ) : (
+              <span className="text-muted-foreground">connecting…</span>
             )}
-          >
-            <Icon className="h-4 w-4 flex-shrink-0" />
-            {label}
-          </Link>
-        ))}
-      </nav>
-
-      <div className="border-t border-border px-6 py-4">
-        <p className="text-xs text-muted-foreground">MovieLens 1M · 3,706 items</p>
-        <p className="text-xs text-muted-foreground">6,040 users · NeuMF + SVD</p>
+          </div>
+        </div>
       </div>
-    </aside>
+    </header>
   );
 }

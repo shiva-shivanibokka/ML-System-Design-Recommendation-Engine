@@ -4,26 +4,27 @@
 
 @layer base {
   :root {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-    --card: 224 71% 4%;
-    --card-foreground: 213 31% 91%;
-    --popover: 224 71% 4%;
-    --popover-foreground: 213 31% 91%;
-    --primary: 263 70% 65%;
-    --primary-foreground: 224 71% 4%;
-    --secondary: 222 47% 11%;
-    --secondary-foreground: 213 31% 91%;
-    --muted: 223 47% 11%;
-    --muted-foreground: 215 16% 57%;
-    --accent: 216 34% 17%;
-    --accent-foreground: 213 31% 91%;
-    --destructive: 0 63% 50%;
-    --destructive-foreground: 213 31% 91%;
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
-    --ring: 263 70% 65%;
-    --radius: 0.5rem;
+    /* Marquee: warm charcoal base, marquee-amber signal */
+    --background: 30 14% 4%;
+    --foreground: 33 32% 89%;
+    --card: 30 20% 7%;
+    --card-foreground: 33 32% 89%;
+    --popover: 30 22% 8%;
+    --popover-foreground: 33 32% 89%;
+    --primary: 38 78% 56%;
+    --primary-foreground: 30 40% 6%;
+    --secondary: 30 22% 12%;
+    --secondary-foreground: 33 32% 89%;
+    --muted: 30 20% 12%;
+    --muted-foreground: 34 12% 56%;
+    --accent: 30 26% 14%;
+    --accent-foreground: 33 32% 89%;
+    --destructive: 11 80% 58%;
+    --destructive-foreground: 33 32% 92%;
+    --border: 32 22% 15%;
+    --input: 32 22% 15%;
+    --ring: 38 78% 56%;
+    --radius: 0.4rem;
   }
 }
 
@@ -33,22 +34,58 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings: "ss01" 1, "cv01" 1, "calt" 1;
+    /* Warm vignette so the dark never reads as flat black */
+    background-image:
+      radial-gradient(120% 90% at 12% -10%, rgba(231, 163, 58, 0.06), transparent 55%),
+      radial-gradient(90% 80% at 100% 0%, rgba(55, 196, 164, 0.045), transparent 50%);
+    background-attachment: fixed;
   }
 }
 
-/* Custom scrollbar */
+@layer utilities {
+  .grain::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  /* Marquee bulb ticker for rails */
+  .marquee-rule {
+    background-image: radial-gradient(circle, rgba(231, 163, 58, 0.5) 1px, transparent 1.4px);
+    background-size: 11px 100%;
+    background-repeat: repeat-x;
+    background-position: center;
+  }
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: hsl(224 71% 4%);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(216 34% 22%);
-  border-radius: 3px;
+  background: hsl(32 22% 20%);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(263 70% 55%);
+  background: hsl(38 60% 40%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
