@@ -119,6 +119,7 @@ class AppState:
     item_interaction_counts: Dict[int, int] = {}
     user_history: Dict[int, set] = {}  # user_idx → set of item_idxs seen
     embedding_map: List[dict] = []  # precomputed 2D item embedding projection
+    recent_item_ids: set = set()  # "trending" items for the freshness boost
 
 
 state = AppState()
@@ -194,30 +195,52 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log.warning("startup.postgres_failed", error=str(e))
 
-    # Load ID maps and item metadata
+    # Load ID maps and item metadata. Each read is guarded: if the processed
+    # data is missing/corrupt the gateway degrades to popularity-only serving
+    # instead of failing to boot.
     import pandas as pd
 
-    user_map = pd.read_parquet(proc / "user_id_map.parquet")
-    item_map = pd.read_parquet(proc / "item_id_map.parquet")
-    movies = pd.read_parquet(proc / "movies.parquet")
-    user_stats = pd.read_parquet(proc / "user_stats.parquet")
-    item_stats = pd.read_parquet(proc / "item_stats.parquet")
-    train = pd.read_parquet(proc / "train.parquet")
+    def _load_parquet(name: str) -> "pd.DataFrame":
+        try:
+            return pd.read_parquet(proc / name)
+        except Exception as e:
+            log.warning("startup.parquet_missing", file=name, error=str(e))
+            return pd.DataFrame()
 
-    state.user_id_map = dict(zip(user_map["user_id"], user_map["user_idx"]))
-    state.item_id_map = dict(zip(item_map["item_id"], item_map["item_idx"]))
-    state.idx_to_item = dict(zip(item_map["item_idx"], item_map["item_id"]))
-    state.item_genres = dict(zip(movies["item_id"], movies["primary_genre"]))
+    def _zipdict(df: "pd.DataFrame", key: str, val: str) -> dict:
+        if df.empty or key not in df.columns or val not in df.columns:
+            return {}
+        return dict(zip(df[key], df[val]))
+
+    user_map = _load_parquet("user_id_map.parquet")
+    item_map = _load_parquet("item_id_map.parquet")
+    movies = _load_parquet("movies.parquet")
+    user_stats = _load_parquet("user_stats.parquet")
+    item_stats = _load_parquet("item_stats.parquet")
+    train = _load_parquet("train.parquet")
+
+    state.user_id_map = _zipdict(user_map, "user_id", "user_idx")
+    state.item_id_map = _zipdict(item_map, "item_id", "item_idx")
+    state.idx_to_item = _zipdict(item_map, "item_idx", "item_id")
+    state.item_genres = _zipdict(movies, "item_id", "primary_genre")
     state.n_total_items = len(item_map)
-    state.user_interaction_counts = dict(
-        zip(user_stats["user_id"], user_stats["interaction_count"])
-    )
-    state.item_interaction_counts = dict(
-        zip(item_stats["item_id"], item_stats["interaction_count"])
-    )
+    state.user_interaction_counts = _zipdict(user_stats, "user_id", "interaction_count")
+    state.item_interaction_counts = _zipdict(item_stats, "item_id", "interaction_count")
 
     # User history for negative sampling / seen item exclusion
-    state.user_history = train.groupby("user_idx")["item_idx"].apply(set).to_dict()
+    if not train.empty and {"user_idx", "item_idx"} <= set(train.columns):
+        state.user_history = train.groupby("user_idx")["item_idx"].apply(set).to_dict()
+    else:
+        state.user_history = {}
+
+    # "Trending" set for the freshness boost: items most recently active in the
+    # dataset (top decile of last interaction time). Powers Stage 4 freshness.
+    state.recent_item_ids = set()
+    if not item_stats.empty and "last_interaction_ts" in item_stats.columns:
+        cutoff = item_stats["last_interaction_ts"].quantile(0.90)
+        state.recent_item_ids = set(
+            item_stats.loc[item_stats["last_interaction_ts"] >= cutoff, "item_id"]
+        )
 
     # Precomputed 2D embedding projection for the "embedding galaxy" viz
     emap_path = proc / "embedding_map.parquet"
@@ -419,7 +442,10 @@ async def _recommend_pipeline(req: RecommendRequest) -> RecommendResponse:
 
     if is_cold_user or user_idx is None or state.faiss_index is None:
         is_cold_start = True
-        COLD_START_COUNTER.labels(type="user").inc()
+        # Only count genuine cold users — an unmapped user or missing FAISS index
+        # is an infra fallback, not a cold-start, and must not pollute the metric.
+        if is_cold_user:
+            COLD_START_COUNTER.labels(type="user").inc()
         # Fallback: use popularity pool item indexes
         seen_item_ids = set()
         pop_items = cold_start_handler.get_popularity_fallback(
@@ -560,6 +586,7 @@ async def _recommend_pipeline(req: RecommendRequest) -> RecommendResponse:
         candidates=top50_by_id,
         item_genres=state.item_genres,
         top_n=req.top_n,
+        recent_item_ids=state.recent_item_ids,
     )
     stage_latencies[STAGE_POST_RANKING] = (time.time() - t0) * 1000
     PIPELINE_LATENCY.labels(stage=STAGE_POST_RANKING).observe(
@@ -680,12 +707,15 @@ async def click_feedback(req: ClickRequest):
         except Exception as e:
             log.error("click_log_failed", error=str(e))
 
-    # Invalidate cache for this user
+    # Invalidate every cached recommendation list for this user, regardless of
+    # top_n (keys are rec:{user_id}:{top_n}), so a click never leaves stale recs.
     if state.redis_client:
         try:
-            state.redis_client.delete(f"rec:{req.user_id}:10")
-        except Exception:
-            pass
+            keys = list(state.redis_client.scan_iter(match=f"rec:{req.user_id}:*", count=100))
+            if keys:
+                state.redis_client.delete(*keys)
+        except Exception as e:
+            log.warning("click_cache_invalidation_failed", error=str(e))
 
     return {"status": "ok", "bandit_state": bandit.get_state()}
 

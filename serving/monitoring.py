@@ -194,9 +194,12 @@ class StalenessDetector:
             ctr = self.compute_rolling_ctr(model)
             CTR_GAUGE.labels(model=model).set(ctr)
 
-            baseline = self._baseline_ctrs.get(model, ctr)  # first reading is baseline
-            if not self._baseline_ctrs.get(model):
+            # Anchor the baseline to the FIRST reading (even if it's 0.0). Using
+            # truthiness here would keep resetting the baseline until the first
+            # non-zero CTR, so the comparison would drift to an arbitrary point.
+            if model not in self._baseline_ctrs:
                 self._baseline_ctrs[model] = ctr
+            baseline = self._baseline_ctrs[model]
 
             is_stale = (
                 baseline > 0.01
@@ -222,7 +225,7 @@ class StalenessDetector:
         Coverage < 10% = model is recommending the same items to everyone.
         """
         if self._n_total_items == 0:
-            return 1.0
+            return 0.0  # unknown catalog size is not "perfect coverage"
         cutoff = time.time() - (window_hours * 3600)
         recent_ids = {iid for ts, iid in self.recommended_items if ts > cutoff}
         coverage = len(recent_ids) / self._n_total_items
@@ -267,9 +270,18 @@ class StalenessDetector:
         if len(reference) < 100 or len(current) < 50:
             return 0.0  # insufficient data
 
-        bins = np.linspace(0, 1, 11)  # 10 equal-width bins over [0,1] scores
-        ref_hist, _ = np.histogram(reference, bins=bins, density=True)
-        cur_hist, _ = np.histogram(current, bins=bins, density=True)
+        # Fit bin edges from the observed scores rather than assuming [0,1]: raw
+        # SVD dot-product scores are unbounded (can be negative or >1), so fixed
+        # [0,1] bins would drop them and yield a meaningless PSI. Robust
+        # percentiles guard against outliers; clip so every score lands in a bin.
+        ref_arr = np.asarray(reference, dtype=float)
+        cur_arr = np.asarray(current, dtype=float)
+        lo, hi = np.percentile(np.concatenate([ref_arr, cur_arr]), [0.5, 99.5])
+        if hi <= lo:
+            return 0.0
+        bins = np.linspace(lo, hi, 11)
+        ref_hist, _ = np.histogram(np.clip(ref_arr, lo, hi), bins=bins, density=True)
+        cur_hist, _ = np.histogram(np.clip(cur_arr, lo, hi), bins=bins, density=True)
 
         # Clip to avoid log(0)
         ref_hist = np.clip(ref_hist, 1e-10, None)

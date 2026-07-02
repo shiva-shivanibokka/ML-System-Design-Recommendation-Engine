@@ -211,7 +211,10 @@ def _load_settings() -> Settings:
     # in committed files. Set these in .env (local) or your cloud provider's
     # secret store (Railway / Render / HF Spaces).
     pg = raw["postgres"]
-    pg["password"] = os.getenv("POSTGRES_PASSWORD", "recsys")
+    # Never fall back to a hardcoded password. Use the (empty) yaml default when
+    # POSTGRES_PASSWORD is unset so a misconfigured deploy fails to connect
+    # loudly instead of silently using a known credential.
+    pg["password"] = os.getenv("POSTGRES_PASSWORD", pg.get("password", ""))
     pg["user"] = os.getenv("POSTGRES_USER", pg["user"])
     pg["host"] = os.getenv("POSTGRES_HOST", pg["host"])
     pg["db"] = os.getenv("POSTGRES_DB", pg["db"])
