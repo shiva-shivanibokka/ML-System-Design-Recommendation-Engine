@@ -11,7 +11,7 @@ help:
 	@echo "  bootstrap         Full first-time setup (setup + data + train + feast-apply + feast-materialize)"
 	@echo "  setup             Install Python dependencies"
 	@echo "  data              Download and preprocess MovieLens-1M dataset"
-	@echo "  train             Train SVD and NeuMF models, build FAISS index"
+	@echo "  train             Train SVD + NeuMF, build FAISS index & t-SNE embedding map"
 	@echo "  feast-apply       Register feature definitions in Feast"
 	@echo "  feast-materialize Sync offline features → Redis online store"
 	@echo "  serve             Start the FastAPI gateway on :8000"
@@ -28,13 +28,11 @@ setup:
 	$(PIP) install -r requirements.txt
 
 data:
-	$(PYTHON) data/download_movielens.py
-	$(PYTHON) data/preprocess.py
+	$(PYTHON) scripts/download_movielens.py
 
 train:
-	$(PYTHON) training/train.py --model svd
-	$(PYTHON) training/train.py --model ncf
-	$(PYTHON) training/build_faiss_index.py
+	$(PYTHON) training/train.py --model all
+	$(PYTHON) scripts/build_embedding_map.py
 
 feast-apply:
 	cd feature_store/feature_repo && feast apply
@@ -54,7 +52,6 @@ docker-up:
 	docker compose up -d --build
 	@echo "Services starting. Access points:"
 	@echo "  API:      http://localhost:8000"
-	@echo "  Gradio:   http://localhost:7860"
 	@echo "  MLflow:   http://localhost:5001"
 	@echo "  Grafana:  http://localhost:3000"
 	@echo "  Prometheus: http://localhost:9090"
