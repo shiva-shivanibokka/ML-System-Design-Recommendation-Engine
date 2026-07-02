@@ -137,36 +137,53 @@ def evaluate(
     val: pd.DataFrame,
     train: pd.DataFrame,
     top_k: int = 10,
+    n_eval_users: int = 1000,
+    n_negatives: int = 99,
 ) -> Dict[str, float]:
     """
-    Leave-one-out evaluation.
-    For each user, the held-out item is the single positive in val.
-    Metric: HR@K (Hit Rate) and NDCG@K.
+    Leave-one-out evaluation using the 100-item sampling protocol — the SAME
+    protocol as training.ncf_model.evaluate_ncf (rank the held-out positive
+    against 99 sampled negatives), so SVD and NCF HR@K/NDCG@K are directly
+    comparable (the earlier full-catalog ranking made them apples-to-oranges).
     """
-    # Build seen items per user from train
     seen = train.groupby("user_idx")["item_idx"].apply(set).to_dict()
+    n_items = model.n_items
+
+    # One held-out positive per user
+    test_pairs, seen_users = [], set()
+    for user_idx, item_idx in zip(val["user_idx"].tolist(), val["item_idx"].tolist()):
+        u = int(user_idx)
+        if u not in seen_users:
+            test_pairs.append((u, int(item_idx)))
+            seen_users.add(u)
+    np.random.shuffle(test_pairs)
+    test_pairs = test_pairs[:n_eval_users]
 
     hits, ndcgs = [], []
-    users = val["user_idx"].unique()
+    for user_idx, pos_item in test_pairs:
+        history = seen.get(user_idx, set())
+        all_scores = model.predict_scores(user_idx)
 
-    for user_idx in users:
-        pos_items = val[val["user_idx"] == user_idx]["item_idx"].tolist()
-        if not pos_items:
-            continue
-        target_item = pos_items[0]
-        exclude = seen.get(user_idx, set())
-        recs = model.recommend(user_idx, top_k=top_k, exclude_seen=exclude)
-        rec_items = [r[0] for r in recs]
+        negatives = []
+        while len(negatives) < n_negatives:
+            neg = int(np.random.randint(0, n_items))
+            if neg != pos_item and neg not in history:
+                negatives.append(neg)
+        candidates = [pos_item] + negatives
+        cand_scores = all_scores[candidates]
 
-        if target_item in rec_items:
-            rank = rec_items.index(target_item) + 1
+        ranked_indices = np.argsort(-cand_scores, kind="stable")[:top_k]
+        ranked_items = [candidates[i] for i in ranked_indices]
+
+        if pos_item in ranked_items:
+            rank = ranked_items.index(pos_item) + 1
             hits.append(1)
             ndcgs.append(1.0 / np.log2(rank + 1))
         else:
             hits.append(0)
             ndcgs.append(0.0)
 
-    hr = float(np.mean(hits))
-    ndcg = float(np.mean(ndcgs))
+    hr = float(np.mean(hits)) if hits else 0.0
+    ndcg = float(np.mean(ndcgs)) if ndcgs else 0.0
     print(f"[SVD Eval] HR@{top_k}={hr:.4f}  NDCG@{top_k}={ndcg:.4f}  (n={len(hits)})")
     return {f"hr_at_{top_k}": hr, f"ndcg_at_{top_k}": ndcg}

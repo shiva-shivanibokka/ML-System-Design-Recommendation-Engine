@@ -30,6 +30,17 @@ from configs.settings import settings
 from training.ncf_model import InteractionDataset, NeuMF, evaluate_ncf
 from training.svd_model import SVDRecommender, evaluate
 
+SEED = 42
+
+
+def _set_seed(seed: int = SEED) -> None:
+    """Seed numpy + torch so training and the FAISS-feeding embeddings are
+    reproducible (negative sampling, shuffles, DataLoader, and init are all RNG)."""
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
 
 # ---------------------------------------------------------------------------
 # Data Loading Helpers
@@ -232,8 +243,10 @@ def train_ncf(train, val, user_history, n_users, n_items):
 
         total_time = time.time() - t_total
 
-        # Restore best model
-        model.load_state_dict(best_state)
+        # Restore best model (guard: a degenerate run where NDCG never beats 0.0
+        # leaves best_state None — keep the last-epoch weights instead of crashing).
+        if best_state is not None:
+            model.load_state_dict(best_state)
         model = model.cpu()
         model.eval()
 
@@ -341,6 +354,7 @@ def main():
     parser.add_argument("--model", choices=["svd", "ncf", "all"], default="all")
     args = parser.parse_args()
 
+    _set_seed()
     train_df, val_df, movies, user_history, n_users, n_items = load_data()
 
     if args.model in ("svd", "all"):

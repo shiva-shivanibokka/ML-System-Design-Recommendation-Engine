@@ -313,8 +313,9 @@ def evaluate_ncf(
             items_t = torch.LongTensor(candidates)
             scores = model(users_t, items_t).numpy()
 
-            # Rank
-            ranked_indices = np.argsort(scores)[::-1][:top_k]
+            # Rank (stable descending sort so score ties keep candidate order and
+            # don't push the positive to the back of a tie group — biases early HR/NDCG).
+            ranked_indices = np.argsort(-scores, kind="stable")[:top_k]
             ranked_items = [candidates[i] for i in ranked_indices]
 
             if pos_item in ranked_items:
