@@ -39,13 +39,12 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from configs.settings import settings

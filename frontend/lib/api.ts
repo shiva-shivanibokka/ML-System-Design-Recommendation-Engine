@@ -6,7 +6,6 @@ export interface Recommendation {
   genre: string;
   score: number;
   is_fresh: boolean;
-  rank: number;
 }
 
 export interface RecommendResponse {

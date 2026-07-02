@@ -27,7 +27,6 @@ import json
 import subprocess
 import sys
 import time
-import uuid
 from pathlib import Path
 from typing import List
 
@@ -44,7 +43,6 @@ try:
 except ImportError:
     KAFKA_AVAILABLE = False
 
-FEEDBACK_BUFFER: List[dict] = []
 FLUSH_INTERVAL_EVENTS = 500
 FLUSH_INTERVAL_SECONDS = 60
 

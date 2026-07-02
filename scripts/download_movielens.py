@@ -21,8 +21,6 @@ Run: python scripts/download_movielens.py
 
 from __future__ import annotations
 
-import io
-import os
 import sys
 import urllib.request
 import zipfile

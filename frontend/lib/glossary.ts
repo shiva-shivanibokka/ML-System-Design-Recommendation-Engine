@@ -42,14 +42,6 @@ export const GLOSSARY: Record<string, { term: string; body: string }> = {
     term: "PSI (Population Stability Index)",
     body: "Measures how much the distribution of model scores has drifted vs a baseline. Rising PSI is an early warning that the world changed and the model may be going stale. Alert at 0.2.",
   },
-  score: {
-    term: "Relevance score",
-    body: "The model's predicted match between this user and this movie. Higher means more confident. NeuMF and SVD produce them on different scales, so compare within a single result set.",
-  },
-  fresh: {
-    term: "Trending / fresh",
-    body: "The item got a freshness boost in re-ranking because it's recently popular — a light recency signal layered on top of pure relevance.",
-  },
   registerclick: {
     term: "Register click",
     body: "Simulates you clicking this movie. It sends a reward to the bandit for whichever model produced this recommendation — so clicking teaches the system which model to trust. Watch the Bandit A/B page update.",
