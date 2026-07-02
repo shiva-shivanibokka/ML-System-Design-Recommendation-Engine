@@ -89,9 +89,15 @@ def train_svd(train, val, user_history, n_users, n_items):
         mlflow.log_metrics({**metrics, "train_time_sec": train_time})
         model.save()
 
-        # Register in MLflow Model Registry
+        # Register in MLflow Model Registry (best-effort). Registration is not
+        # essential to producing the model artifact on disk; skip gracefully if
+        # the tracking backend/version doesn't support it (e.g. the file store on
+        # MLflow 3.x, where runs:/<id>/model is no longer a registrable model).
         mlflow.log_artifact(settings.svd.model_path, artifact_path="model")
-        mlflow.register_model(f"runs:/{run.info.run_id}/model", "recsys-svd")
+        try:
+            mlflow.register_model(f"runs:/{run.info.run_id}/model", "recsys-svd")
+        except Exception as e:
+            print(f"[SVD] Model registry skipped: {e}")
         print(f"[SVD] Training complete in {train_time:.1f}s")
         print(f"[SVD] MLflow run: {run.info.run_id}")
         return model, metrics
@@ -245,7 +251,10 @@ def train_ncf(train, val, user_history, n_users, n_items):
         )
 
         mlflow.log_artifact(settings.ncf.model_path, artifact_path="model")
-        mlflow.register_model(f"runs:/{run.info.run_id}/model", "recsys-ncf")
+        try:
+            mlflow.register_model(f"runs:/{run.info.run_id}/model", "recsys-ncf")
+        except Exception as e:
+            print(f"[NCF] Model registry skipped: {e}")
         print(f"[NCF] Best NDCG@10={best_ndcg:.4f}")
         print(f"[NCF] Total training time: {total_time:.1f}s")
         print(f"[NCF] MLflow run: {run.info.run_id}")
