@@ -70,6 +70,7 @@ from sqlalchemy import create_engine, text
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from configs.settings import settings
 from serving.artifacts import download_artifacts
+from serving.metrics_push import start_metrics_push
 from serving.bandit import bandit
 from serving.explain import explain_recommendations as _explain_recs
 from serving.cold_start import cold_start_handler
@@ -232,6 +233,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log.warning("startup.feast_failed", error=str(e))
         state.feast_store = None
+
+    # Push metrics to Grafana Cloud (no-op if GRAFANA_PUSH_URL unset)
+    start_metrics_push(
+        url=os.getenv("GRAFANA_PUSH_URL"),
+        user=os.getenv("GRAFANA_PUSH_USER"),
+        key=os.getenv("GRAFANA_PUSH_KEY"),
+    )
 
     log.info("startup.complete", elapsed_sec=round(time.time() - t0, 2))
     yield
