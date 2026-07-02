@@ -38,11 +38,19 @@ def start_metrics_push(
     handler = _auth_handler_factory(user or "", key or "") if user else None
 
     def _loop():
+        consecutive_failures = 0
         while True:
             try:
                 push_to_gateway(url, job="recsys-gateway", registry=REGISTRY, handler=handler)
+                consecutive_failures = 0
             except Exception as e:
-                log.debug("metrics_push.failed", error=str(e))
+                consecutive_failures += 1
+                # Escalate from debug to a single warning once pushes are clearly
+                # broken (e.g. wrong URL/auth), so it isn't silently lost forever.
+                if consecutive_failures == 5:
+                    log.warning("metrics_push.failing", error=str(e), consecutive=5)
+                else:
+                    log.debug("metrics_push.failed", error=str(e))
             time.sleep(interval)
 
     t = threading.Thread(target=_loop, daemon=True)

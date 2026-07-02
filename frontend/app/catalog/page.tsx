@@ -214,6 +214,8 @@ function Galaxy({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastMove = useRef<{ mx: number; my: number } | null>(null);
   const [hover, setHover] = useState<{ p: EmbeddingPoint; sx: number; sy: number } | null>(null);
   const [size, setSize] = useState({ w: 900, h: 680 });
 
@@ -292,20 +294,26 @@ function Galaxy({
 
   function onMove(e: React.MouseEvent) {
     const rect = canvasRef.current!.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    let best: { p: EmbeddingPoint; sx: number; sy: number } | null = null;
-    let bestD = 120;
-    for (const p of points) {
-      if (active.size > 0 && !active.has(p.genre)) continue;
-      const { sx, sy } = project(p);
-      const d = (sx - mx) ** 2 + (sy - my) ** 2;
-      if (d < bestD) {
-        bestD = d;
-        best = { p, sx, sy };
+    lastMove.current = { mx: e.clientX - rect.left, my: e.clientY - rect.top };
+    // Coalesce rapid mousemoves into one hit-test + redraw per animation frame.
+    if (rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      const ev = lastMove.current;
+      if (!ev) return;
+      let best: { p: EmbeddingPoint; sx: number; sy: number } | null = null;
+      let bestD = 120;
+      for (const p of points) {
+        if (active.size > 0 && !active.has(p.genre)) continue;
+        const { sx, sy } = project(p);
+        const d = (sx - ev.mx) ** 2 + (sy - ev.my) ** 2;
+        if (d < bestD) {
+          bestD = d;
+          best = { p, sx, sy };
+        }
       }
-    }
-    setHover(best);
+      setHover(best);
+    });
   }
 
   return (
