@@ -100,7 +100,7 @@ export default function BanditPage() {
               Let traffic decide.
             </span>
           </h1>
-          <p className="mt-5 max-w-5xl text-lg text-muted-foreground sm:text-xl">
+          <p className="mt-5 max-w-6xl text-lg text-muted-foreground sm:text-xl">
             A Thompson-Sampling bandit
             <Info k="bandit" className="mx-0.5 align-middle" /> holds a belief about each model&apos;s
             click rate and routes each request to whichever looks best right now. Click titles on the

@@ -91,7 +91,7 @@ export default function MonitoringPage() {
               healthy?
             </span>
           </h1>
-          <p className="mt-5 max-w-5xl text-lg text-muted-foreground sm:text-xl">
+          <p className="mt-5 max-w-6xl text-lg text-muted-foreground sm:text-xl">
             Three staleness signals a real team watches: click-through rate, catalog
             coverage, and score drift. When any crosses a threshold, it&apos;s time to retrain.
           </p>

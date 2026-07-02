@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   api,
   reasonFor,
@@ -133,6 +133,37 @@ export default function RecommendPage() {
   const [result, setResult] = useState<RecommendResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [clicked, setClicked] = useState<Set<number>>(new Set());
+  const [hydrated, setHydrated] = useState(false);
+
+  // Restore the last query + results so they survive tab switches and refreshes.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("recsys:last");
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (typeof s.userId === "string") setUserId(s.userId);
+        if (typeof s.topN === "number") setTopN(s.topN);
+        if (typeof s.model === "string") setModel(s.model);
+        if (s.result) setResult(s.result);
+        if (Array.isArray(s.clicked)) setClicked(new Set(s.clicked));
+      }
+    } catch {
+      /* ignore malformed cache */
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(
+        "recsys:last",
+        JSON.stringify({ userId, topN, model, result, clicked: [...clicked] })
+      );
+    } catch {
+      /* ignore quota / private-mode errors */
+    }
+  }, [userId, topN, model, result, clicked, hydrated]);
 
   async function run(e?: React.FormEvent) {
     e?.preventDefault();
@@ -175,7 +206,7 @@ export default function RecommendPage() {
             watch next?
           </span>
         </h1>
-        <p className="mt-6 max-w-5xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+        <p className="mt-6 max-w-6xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
           Every request runs a five-stage pipeline —{" "}
           <span className="text-foreground">FAISS retrieval</span>
           <Info k="faiss" className="mx-0.5 align-middle" /> →{" "}

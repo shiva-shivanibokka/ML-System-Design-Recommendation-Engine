@@ -57,8 +57,9 @@ export default function CatalogPage() {
             point in space.
           </span>
         </h1>
-        <p className="mt-6 flex max-w-5xl flex-wrap items-center gap-x-1.5 text-lg leading-relaxed text-muted-foreground sm:text-xl">
-          A 2D t-SNE projection <Info k="embedding" /> of all{" "}
+        <p className="mt-6 max-w-6xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+          A 2D t-SNE projection
+          <Info k="embedding" className="mx-0.5 align-middle" /> of all{" "}
           {map ? map.count.toLocaleString() : "3,533"} NeuMF item vectors. Nearby movies are ones the
           model treats as similar — retrieval literally searches this neighborhood.
         </p>
