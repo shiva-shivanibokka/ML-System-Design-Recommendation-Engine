@@ -14,12 +14,7 @@ project:
 data:
   raw_dir: data/raw
   processed_dir: data/processed
-  embeddings_dir: data/embeddings
-  indexes_dir: data/indexes
   movielens_url: "https://files.grouplens.org/datasets/movielens/ml-1m.zip"
-  min_interactions: 5          # cold-start threshold — users/items below this
-  train_ratio: 0.8
-  val_ratio: 0.1
   # test_ratio: 0.1 (remainder)
 
 # -----------------------------------------------------------------------------
@@ -57,7 +52,6 @@ ncf:
   num_negatives: 4             # negative samples per positive interaction
   early_stopping_patience: 3
   model_path: models/ncf/ncf_model.pt
-  user_embedding_path: models/ncf/user_embeddings.npy
   item_embedding_path: models/ncf/item_embeddings.npy
 
 # -----------------------------------------------------------------------------
@@ -139,7 +133,6 @@ kafka:
 mlflow:
   tracking_uri: http://mlflow:5001
   experiment_name: recsys-recommendation-engine
-  artifact_location: /mlflow/artifacts
 
 # -----------------------------------------------------------------------------
 # Monitoring / Staleness Detection
@@ -160,7 +153,6 @@ services:
   ranking_port: 8002
   feedback_port: 8003
   mlflow_port: 5001
-  gradio_port: 7860
   airflow_port: 8080
   prometheus_port: 9090
   grafana_port: 3000

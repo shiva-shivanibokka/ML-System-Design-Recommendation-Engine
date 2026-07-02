@@ -113,7 +113,8 @@ services:
       --host 0.0.0.0
       --port 5001
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      # curl isn't in the mlflow image; use its bundled Python instead.
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5001/health')\""]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -149,7 +150,8 @@ services:
       - ./configs:/app/configs
     command: uvicorn serving.main:app --host 0.0.0.0 --port 8000 --workers 2
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      # curl isn't installed in the slim gateway image; use Python.
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -172,26 +174,10 @@ services:
       - ./data:/app/data
       - ./configs:/app/configs
     command: python streaming/consumer.py
-    restart: on-failure
+    restart: unless-stopped
 
-  # ---------------------------------------------------------------------------
-  # Gradio UI
-  # ---------------------------------------------------------------------------
-  gradio:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "7860:7860"
-    depends_on:
-      gateway:
-        condition: service_healthy
-    volumes:
-      - ./data:/app/data
-      - ./configs:/app/configs
-    command: python gradio_app/app.py
-    environment:
-      - GATEWAY_URL=http://gateway:8000
+  # (The Gradio UI was replaced by the Next.js frontend/ app — deploy that to
+  #  Vercel or run `npm --prefix frontend run dev`.)
 
   # ---------------------------------------------------------------------------
   # Prometheus

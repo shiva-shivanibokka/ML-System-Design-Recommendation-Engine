@@ -25,12 +25,7 @@ import yaml
 class DataConfig:
     raw_dir: str
     processed_dir: str
-    embeddings_dir: str
-    indexes_dir: str
     movielens_url: str
-    min_interactions: int
-    train_ratio: float
-    val_ratio: float
 
 
 @dataclass
@@ -64,7 +59,6 @@ class NCFConfig:
     num_negatives: int
     early_stopping_patience: int
     model_path: str
-    user_embedding_path: str
     item_embedding_path: str
 
 
@@ -143,7 +137,6 @@ class KafkaConfig:
 class MLflowConfig:
     tracking_uri: str
     experiment_name: str
-    artifact_location: str
 
 
 @dataclass
@@ -172,7 +165,6 @@ class ServicesConfig:
     ranking_port: int
     feedback_port: int
     mlflow_port: int
-    gradio_port: int
     airflow_port: int
     prometheus_port: int
     grafana_port: int

@@ -160,11 +160,9 @@ def build_implicit_feedback(ratings: pd.DataFrame) -> pd.DataFrame:
     return positive
 
 
-def chronological_split(
-    interactions: pd.DataFrame, train_r: float, val_r: float
-) -> tuple:
+def chronological_split(interactions: pd.DataFrame) -> tuple:
     """
-    Chronological leave-k-out split per user.
+    Chronological leave-one-out split per user (fixed protocol — no ratio params).
     Last interaction  → test
     Second-to-last    → val
     Everything else   → train
@@ -250,9 +248,18 @@ def remap_ids(
     user2idx = {uid: idx for idx, uid in enumerate(unique_users)}
     item2idx = {iid: idx for idx, iid in enumerate(unique_items)}
 
-    for df in [ratings, interactions]:
-        df["user_idx"] = df["user_id"].map(user2idx)
-        df["item_idx"] = df["item_id"].map(item2idx)
+    # interactions are the positive-only vocab, so every row maps cleanly.
+    interactions["user_idx"] = interactions["user_id"].map(user2idx).astype(int)
+    interactions["item_idx"] = interactions["item_id"].map(item2idx).astype(int)
+
+    # ratings includes negatives (rating < 4) whose users/items may not be in the
+    # positive-interaction vocab → NaN idx. Drop those rows and cast to int so
+    # ratings.parquet doesn't carry NaN index columns.
+    ratings["user_idx"] = ratings["user_id"].map(user2idx)
+    ratings["item_idx"] = ratings["item_id"].map(item2idx)
+    ratings = ratings.dropna(subset=["user_idx", "item_idx"]).copy()
+    ratings["user_idx"] = ratings["user_idx"].astype(int)
+    ratings["item_idx"] = ratings["item_idx"].astype(int)
 
     users["user_idx"] = users["user_id"].map(user2idx)
     movies["item_idx"] = movies["item_id"].map(item2idx)
@@ -316,11 +323,7 @@ def main():
         ratings, interactions, users, movies
     )
 
-    train, val, test = chronological_split(
-        interactions,
-        settings.data.train_ratio,
-        settings.data.val_ratio,
-    )
+    train, val, test = chronological_split(interactions)
 
     user_stats = compute_user_stats(interactions)
     item_stats = compute_item_stats(interactions, movies)
