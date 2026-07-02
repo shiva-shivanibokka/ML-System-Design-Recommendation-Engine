@@ -234,7 +234,10 @@ def _load_settings() -> Settings:
             raw["redis"]["port"] = _p.port
         if _p.password:
             raw["redis"]["password"] = _p.password
-        raw["redis"]["ssl"] = _redis_url.startswith("rediss://")
+        # Upstash is TLS-only, so force SSL for its hosts even if the URL was
+        # pasted as redis:// (one s) instead of rediss://.
+        _host = _p.hostname or ""
+        raw["redis"]["ssl"] = _redis_url.startswith("rediss://") or _host.endswith("upstash.io")
     raw["kafka"]["bootstrap_servers"] = os.getenv(
         "KAFKA_BOOTSTRAP_SERVERS", raw["kafka"]["bootstrap_servers"]
     )
