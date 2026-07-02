@@ -494,10 +494,11 @@ async def _recommend_pipeline(req: RecommendRequest) -> RecommendResponse:
 
     # ------------------------------------------------------------------
     # Stage 2: Feature Fetch (Feast → Redis online store)
-    # Fetches user features materialized by feature_store/materialize.py.
-    # Degrades gracefully if the online store isn't populated yet — the
-    # ranking stages work fine without these features; they're additive signal.
-    # Run `make feast-materialize` after training to populate the online store.
+    # Demonstrates the online feature-store read pattern (materialized by
+    # feature_store/materialize.py). NOTE: the ID-based NCF/SVD rankers score on
+    # user/item indices and do not currently consume these side features — the
+    # fetch is here to exercise the online store, not to feed ranking. It no-ops
+    # when the store isn't materialized. Run `make feast-materialize` to populate it.
     # ------------------------------------------------------------------
     t0 = time.time()
     feast_features: dict = {}
