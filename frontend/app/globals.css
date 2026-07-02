@@ -51,6 +51,41 @@
     text-wrap: balance;
   }
 
+  /* Drifting, twinkling colored starfield */
+  .stars {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(1.6px 1.6px at 25% 20%, rgba(196, 181, 253, 0.9), transparent 100%),
+      radial-gradient(1.6px 1.6px at 70% 62%, rgba(255, 255, 255, 0.85), transparent 100%),
+      radial-gradient(1.3px 1.3px at 42% 82%, rgba(34, 211, 238, 0.85), transparent 100%),
+      radial-gradient(1.3px 1.3px at 86% 30%, rgba(255, 77, 157, 0.8), transparent 100%),
+      radial-gradient(1.2px 1.2px at 14% 66%, rgba(255, 255, 255, 0.7), transparent 100%),
+      radial-gradient(1.6px 1.6px at 56% 12%, rgba(163, 230, 53, 0.75), transparent 100%),
+      radial-gradient(1.2px 1.2px at 33% 45%, rgba(255, 176, 32, 0.7), transparent 100%);
+    background-size: 320px 320px;
+    background-repeat: repeat;
+    opacity: 0.55;
+    animation: starDrift 80s linear infinite, twinkle 5.5s ease-in-out infinite;
+  }
+  .stars2 {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(1px 1px at 60% 25%, rgba(255, 255, 255, 0.6), transparent 100%),
+      radial-gradient(1px 1px at 20% 75%, rgba(139, 92, 246, 0.6), transparent 100%),
+      radial-gradient(1px 1px at 90% 55%, rgba(255, 255, 255, 0.5), transparent 100%),
+      radial-gradient(1px 1px at 45% 90%, rgba(34, 211, 238, 0.5), transparent 100%);
+    background-size: 540px 540px;
+    background-repeat: repeat;
+    opacity: 0.4;
+    animation: starDrift 140s linear infinite reverse, twinkle 8s ease-in-out infinite;
+  }
+
   /* Glowing aurora on the dark canvas */
   .aurora {
     position: fixed;
@@ -58,7 +93,7 @@
     z-index: 0;
     pointer-events: none;
     filter: blur(70px);
-    opacity: 0.55;
+    opacity: 0.6;
   }
   .aurora span {
     position: absolute;
@@ -111,6 +146,14 @@
 @keyframes drift3 {
   0%, 100% { transform: translate(0, 0) scale(1); }
   50% { transform: translate(5vw, -7vh) scale(1.22); }
+}
+@keyframes starDrift {
+  from { background-position: 0 0; }
+  to { background-position: 320px 640px; }
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.85; }
 }
 
 ::-webkit-scrollbar {

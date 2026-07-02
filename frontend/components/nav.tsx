@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Clapperboard } from "lucide-react";
 import { api, type SystemHealth } from "@/lib/api";
 
 const links = [
@@ -29,21 +30,10 @@ export function Nav() {
       <div className="mx-auto flex h-16 max-w-[1480px] items-center gap-4 px-5 sm:gap-6 sm:px-8">
         {/* Wordmark */}
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="relative flex h-2.5 w-2.5">
-            <span
-              className={cn(
-                "absolute inline-flex h-full w-full rounded-full",
-                live ? "animate-ping bg-live/60" : "bg-transparent"
-              )}
-            />
-            <span
-              className={cn(
-                "relative inline-flex h-2.5 w-2.5 rounded-full",
-                live ? "bg-live" : down ? "bg-alert" : "bg-signal"
-              )}
-            />
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-signal to-pink shadow-[0_0_18px_-2px] shadow-signal/60">
+            <Clapperboard className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
           </span>
-          <span className="font-display text-base font-extrabold tracking-tight text-foreground">
+          <span className="font-display text-lg font-extrabold tracking-tight text-foreground">
             RECSYS
           </span>
         </Link>

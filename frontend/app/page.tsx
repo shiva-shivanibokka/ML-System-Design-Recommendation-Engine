@@ -194,7 +194,7 @@ export default function RecommendPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           {/* user id */}
           <div className="lg:w-52">
-            <label className="mb-1.5 block font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+            <label className="mb-1.5 block font-mono text-[13px] uppercase tracking-wide text-muted-foreground">
               User ID · 1–6040
             </label>
             <input
@@ -211,7 +211,7 @@ export default function RecommendPage() {
                   key={u}
                   type="button"
                   onClick={() => setUserId(String(u))}
-                  className="rounded border border-line px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-signal/40 hover:text-signal"
+                  className="rounded-md border border-line px-2 py-1 font-mono text-[12px] text-muted-foreground transition-colors hover:border-signal/40 hover:text-signal"
                 >
                   {u}
                 </button>
@@ -221,7 +221,7 @@ export default function RecommendPage() {
 
           {/* top N */}
           <div className="lg:w-48">
-            <label className="mb-1.5 flex items-center justify-between font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+            <label className="mb-1.5 flex items-center justify-between font-mono text-[13px] uppercase tracking-wide text-muted-foreground">
               <span>Top N</span>
               <span className="text-signal">{topN}</span>
             </label>
@@ -238,7 +238,7 @@ export default function RecommendPage() {
 
           {/* model */}
           <div className="flex-1">
-            <label className="mb-1.5 flex items-center gap-1 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+            <label className="mb-1.5 flex items-center gap-1 font-mono text-[13px] uppercase tracking-wide text-muted-foreground">
               Model <Info k="bandit" />
             </label>
             <div className="flex gap-1.5">

@@ -35,6 +35,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <span className="b3" />
           <span className="b4" />
         </div>
+        <div className="stars" aria-hidden />
+        <div className="stars2" aria-hidden />
         <Nav />
         <main className="relative z-[1] mx-auto max-w-[1480px] px-5 pb-24 pt-8 sm:px-8">
           {children}
