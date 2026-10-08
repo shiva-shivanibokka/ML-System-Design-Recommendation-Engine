@@ -1,0 +1,16 @@
+# =============================================================================
+# ML System Design: Real-Time Recommendation Engine
+# Development / test requirements
+# =============================================================================
+#
+# Kept separate from requirements.txt on purpose: the serving image installs
+# only the runtime deps, and a test runner has no place in it. CI and `make
+# test` install this file on top of requirements.txt.
+
+-r requirements.txt
+
+# Test runner. pytest was previously used by the Makefile and configured in
+# pyproject.toml without ever being declared, so `pip install -r
+# requirements.txt && pytest` -- exactly what CI ran -- failed with
+# "No module named pytest" on every push from 2026-07-02 onward.
+pytest==8.2.0

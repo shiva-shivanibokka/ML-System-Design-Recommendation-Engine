@@ -172,7 +172,7 @@ Two collaborative-filtering models serve as the bandit's two arms. Both are eval
 | Frontend | Next.js 14 + Tailwind + shadcn/ui + Recharts | App-router SPA, deployed on Vercel |
 | Containerization | Docker + docker-compose | Reproducible local full stack |
 
-Pinned versions live in [`requirements.txt`](requirements.txt) (Python) and [`frontend/package.json`](frontend/package.json) (JS).
+Pinned versions live in [`requirements.txt`](requirements.txt) (runtime) and [`requirements-dev.txt`](requirements-dev.txt) (adds the test runner) for Python, and [`frontend/package.json`](frontend/package.json) for JS.
 
 ---
 
@@ -402,11 +402,17 @@ Set these as **Hugging Face Space secrets** on the gateway (all read via env var
 61 unit + integration tests cover the bandit math, post-ranking (MMR/freshness/genre-cap), cold-start routing, settings/env parsing, artifact download, metrics push, and the API surface.
 
 ```bash
+python -m pip install -r requirements-dev.txt   # runtime deps + pytest
 make test
 # or directly:
 python -m pytest tests/unit/ -v
 python -m pytest tests/integration/ -v
 ```
+
+The test runner lives in [`requirements-dev.txt`](requirements-dev.txt), not
+`requirements.txt`, so the serving image stays free of it. Installing only the
+runtime file and then running `pytest` fails with `No module named pytest` —
+which is precisely what CI did, silently, from 2026-07-02 until it was fixed.
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the full suite on Python 3.11 **and** verifies the Docker image builds, on every push and PR to `main`.
 
